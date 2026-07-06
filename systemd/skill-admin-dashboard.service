@@ -1,0 +1,15 @@
+[Unit]
+Description=skill-admin-dashboard (127.0.0.1 only)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/.openclaw/workspace/dev/projects/skill-admin-dashboard
+ExecStart=/usr/bin/node dist/index.js
+EnvironmentFile=-/root/.openclaw/workspace/dev/projects/skill-admin-dashboard/.env
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
