@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title><%= (typeof title !== 'undefined' && title) ? title + ' · skill-admin-dashboard' : 'skill-admin-dashboard' %></title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 14px/1.45 system-ui, -apple-system, sans-serif; margin: 0; }
+      header { background: #0b3a4a; color: #f0f6f7; padding: 0.6rem 1.2rem; }
+      header h1 { font-size: 1.05rem; margin: 0; display: inline-block; }
+      header .user { float: right; font-size: 0.85rem; }
+      nav { background: #114b5f; padding: 0.4rem 1.2rem; }
+      nav a { color: #cfd8dc; text-decoration: none; margin-right: 1rem; padding: 0.2rem 0.4rem; border-radius: 3px; }
+      nav a.disabled { color: #6a7d83; cursor: not-allowed; pointer-events: none; }
+      nav a.active { background: #1d6f8a; color: #fff; }
+      main { padding: 1.2rem; max-width: 1100px; }
+      footer { padding: 0.6rem 1.2rem; color: #666; font-size: 0.8rem; border-top: 1px solid #ddd; margin-top: 2rem; }
+      .flash { background: #fff3cd; border: 1px solid #ffeeba; padding: 0.6rem 0.8rem; margin-bottom: 1rem; border-radius: 3px; }
+      .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 0.6rem 0.8rem; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>skill-admin-dashboard</h1>
+      <% if (typeof user !== 'undefined' && user && user.userId) { %>
+        <span class="user">
+          signed in as <strong><%= user.userId %></strong>
+          <form method="post" action="/logout" style="display:inline">
+            <%- include('partials/csrf-input') %>
+            <button type="submit" style="background:transparent;color:#cfd8dc;border:1px solid #cfd8dc;padding:0.1rem 0.5rem;border-radius:3px;cursor:pointer">sign out</button>
+          </form>
+        </span>
+      <% } %>
+    </header>
+    <nav>
+      <a href="/" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/') ? 'active' : '' %>">Overview</a>
+      <a href="/vault" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/vault') ? 'active' : '' %>" aria-disabled="true">Vault</a>
+      <a href="/rag" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/rag') ? 'active' : '' %>" aria-disabled="true">RAG</a>
+      <a href="/cron" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/cron') ? 'active' : '' %>" aria-disabled="true">Cron</a>
+      <a href="/sessions" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/sessions') ? 'active' : '' %>" aria-disabled="true">Sessions</a>
+      <a href="/logs" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/logs') ? 'active' : '' %>" aria-disabled="true">Logs</a>
+      <a href="/chatbot" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/chatbot') ? 'active' : '' %>" aria-disabled="true">Chatbot</a>
+    </nav>
+    <main>
+      <% if (typeof flash !== 'undefined' && flash) { %><div class="flash"><%= flash %></div><% } %>
+      <%- body %>
+    </main>
+    <footer>
+      <span>build: dev · loopback only · audit log: runtime/audit.log</span>
+      <% if (typeof readonlyMode !== 'undefined' && readonlyMode) { %>
+        <span> · READONLY_MODE=on (mutating routes disabled)</span>
+      <% } %>
+    </footer>
+  </body>
+</html>

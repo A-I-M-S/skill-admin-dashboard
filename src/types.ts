@@ -5,6 +5,15 @@ export interface SkillSecretConfig {
   passphrase: string | undefined;
 }
 
+export interface AuthConfig {
+  adminUser: string;
+  sessionSecret: string;
+  sessionCookieName: string;
+  sessionTtlMs: number;
+  auditLogPath: string;
+  basicAuthUser: string;
+}
+
 export interface AppConfig {
   host: string;
   port: number;
@@ -16,6 +25,7 @@ export interface AppConfig {
   localTokenHeader: 'x-local-token';
   uiTimezone: string;
   skillSecret: SkillSecretConfig;
+  auth: AuthConfig;
   openclawBin: string;
   nodeEnv: string;
   logLevel: string;
