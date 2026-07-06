@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Env (NEVER commit)
+.env
+.env.*
+!.env.example
+
+# OpenClaw / opencode artifacts
+.opencode/
+.openclaw/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# Temp (project convention: no /tmp usage; use repo-local temp dirs)
+tmp/
+
+# Runtime
+runtime/
+.pid
