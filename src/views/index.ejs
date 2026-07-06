@@ -1,0 +1,19 @@
+<h1>Overview</h1>
+<p>Welcome, <strong><%= (typeof user !== 'undefined' && user && user.userId) ? user.userId : 'anonymous' %></strong>. v1 dashboard shell — feature surfaces are stubbed.</p>
+<section>
+  <h2>Status</h2>
+  <ul>
+    <li>Vault backend: <em>unconfigured</em></li>
+    <li>RAG backend: <em>unconfigured</em></li>
+    <li>Cron jobs: <em>0</em></li>
+    <li>Active agent sessions: <em>0</em></li>
+  </ul>
+</section>
+<section>
+  <h2>Safety</h2>
+  <ul>
+    <li>READONLY_MODE: <strong><%= (typeof readonlyMode !== 'undefined' && readonlyMode) ? 'on' : 'off' %></strong></li>
+    <li>APPROVAL_ACTIONS_ENABLED: <strong><%= (typeof approvalActionsEnabled !== 'undefined' && approvalActionsEnabled) ? 'on' : 'off' %></strong></li>
+    <li>IMPORT_MUTATION_ENABLED: <strong><%= (typeof importMutationEnabled !== 'undefined' && importMutationEnabled) ? 'on' : 'off' %></strong></li>
+  </ul>
+</section>

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type { AppConfig } from './types';
 
@@ -43,6 +44,12 @@ function readTimeZoneEnv(input: string | undefined, fallback: string): string {
   }
 }
 
+function ensureSessionSecret(input: string | undefined): string {
+  const value = (input ?? '').trim();
+  if (value.length >= 32) return value;
+  return randomBytes(32).toString('hex');
+}
+
 export const HOST = readStringEnv(process.env.HOST, '127.0.0.1');
 export const PORT = readPortEnv(process.env.PORT, 4320);
 
@@ -79,8 +86,23 @@ export const SKILL_SECRET_PASSPHRASE = readOptionalStringEnv(process.env.SKILL_S
 // Tool path resolution for cron / sessions_list / opencode.
 export const OPENCLAW_BIN = readStringEnv(process.env.OPENCLAW_BIN, '/usr/local/bin:/usr/bin');
 
+// Auth (Issue #3). ADMIN_PASSWORD is hashed with argon2id lazily by auth/session.ts
+// and never appears in the config object — raw env values stay in module-local consts.
+export const ADMIN_USER = readStringEnv(process.env.ADMIN_USER, 'admin');
+export const ADMIN_PASSWORD = readStringEnv(process.env.ADMIN_PASSWORD, '');
+export const SESSION_SECRET = ensureSessionSecret(process.env.SESSION_SECRET);
+export const SESSION_COOKIE_NAME = readStringEnv(process.env.SESSION_COOKIE_NAME, 'sad.sid');
+export const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 h
+export const AUTH_AUDIT_LOG = readStringEnv(
+  process.env.AUTH_AUDIT_LOG,
+  join(process.cwd(), 'runtime', 'audit.log'),
+);
+
 export const NODE_ENV = readStringEnv(process.env.NODE_ENV, 'production');
-export const LOG_LEVEL = readStringEnv(process.env.LOG_LEVEL, NODE_ENV === 'production' ? 'info' : 'debug');
+export const LOG_LEVEL = readStringEnv(
+  process.env.LOG_LEVEL,
+  NODE_ENV === 'production' ? 'info' : 'debug',
+);
 
 export const config: AppConfig = {
   host: HOST,
@@ -97,6 +119,14 @@ export const config: AppConfig = {
     kmsProjectUrl: SKILL_SECRET_KMS_PROJECT_URL,
     kmsApiBlob: SKILL_SECRET_KMS_API_BLOB,
     passphrase: SKILL_SECRET_PASSPHRASE,
+  },
+  auth: {
+    adminUser: ADMIN_USER,
+    sessionSecret: SESSION_SECRET,
+    sessionCookieName: SESSION_COOKIE_NAME,
+    sessionTtlMs: SESSION_TTL_MS,
+    auditLogPath: AUTH_AUDIT_LOG,
+    basicAuthUser: ADMIN_USER,
   },
   openclawBin: OPENCLAW_BIN,
   nodeEnv: NODE_ENV,
