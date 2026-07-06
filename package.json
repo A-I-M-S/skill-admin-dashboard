@@ -1,0 +1,51 @@
+{
+  "name": "skill-admin-dashboard",
+  "version": "0.1.0",
+  "description": "Native OpenClaw admin dashboard for skill-secret, skill-rag-qdrant, ops, and skill-chatbot.",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@fastify/cookie": "^9.4.0",
+    "@fastify/csrf-protection": "^6.0.2",
+    "@fastify/formbody": "^7.4.0",
+    "@fastify/multipart": "^8.3.0",
+    "@fastify/session": "^10.9.0",
+    "@fastify/static": "^7.0.4",
+    "argon2": "^0.40.3",
+    "ejs": "^3.1.10",
+    "fastify": "^4.28.1",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^20.17.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "pino-pretty": "^13.0.0",
+    "prettier": "^3.4.2",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.8"
+  }
+}
