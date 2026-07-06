@@ -1,0 +1,21 @@
+[Unit]
+Description=Age of Agents (public, port 8123)
+Documentation=https://github.com/age-of-agents/age-of-agents
+After=network-online.target nss-lookup.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=AOA_ALLOW_REMOTE=1
+EnvironmentFile=-/run/aoa.env
+# Fetch public IP and write env file; idempotent iptables pinhole for 8123.
+ExecStartPre=/bin/sh -c 'set -e; PUB_IP=$(curl -4 -sS --max-time 10 ifconfig.me); printf "AOA_EXTRA_ORIGINS=%%s\n" "$PUB_IP" > /run/aoa.env; iptables -C INPUT -p tcp --dport 8123 -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport 8123 -j ACCEPT'
+ExecStart=/usr/bin/aoa --port 8123 --host 0.0.0.0 --no-open
+# Self-probe through the public IP after bind — surfaces SG/NAT issues in the journal.
+ExecStartPost=/bin/sh -c 'sleep 1; . /run/aoa.env; curl -4 -sS --max-time 6 -o /dev/null -w "[aoa] self-probe HTTP %%{http_code}\n" "http://$AOA_EXTRA_ORIGINS:8123/health" || echo "[aoa] self-probe FAILED - check cloud SG for inbound TCP/8123"'
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

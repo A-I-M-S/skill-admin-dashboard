@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenClaw Control Center (public, port 4310)
+Documentation=https://github.com/TianyiDataScience/openclaw-control-center
+After=network-online.target nss-lookup.target openclaw-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/.openclaw/workspace/dev/projects/openclaw-control-center
+Environment=NODE_ENV=production
+EnvironmentFile=-/run/openclaw-cc.env
+# Fetch public IPv4 and write env file; idempotent iptables pinhole for 4310.
+ExecStartPre=/bin/sh -c 'set -e; PUB_IP=$(curl -4 -sS --max-time 10 ifconfig.me); printf "OPENCLAW_CONTROL_UI_URL=http://%%s:4310/\n" "$PUB_IP" > /run/openclaw-cc.env; iptables -C INPUT -p tcp --dport 4310 -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport 4310 -j ACCEPT'
+ExecStart=/usr/bin/npm run dev:ui
+# Self-probe through the public IP after bind — surfaces SG/NAT issues in the journal.
+ExecStartPost=/bin/sh -c 'sleep 3; curl -4 -sS --max-time 6 -o /dev/null -w "[occ] self-probe HTTP %%{http_code}\n" "http://127.0.0.1:4310/?section=overview&lang=en" || echo "[occ] self-probe FAILED - check server logs"'
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

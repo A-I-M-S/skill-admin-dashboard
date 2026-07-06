@@ -1,0 +1,7 @@
+# skill-secret dependencies
+# v4 replaces v3's Notion backend with Supabase. Search runs server-side
+# via Postgres FTS in setup.sql. The client only needs `cryptography`
+# (for the encrypted API-key blob in .env) and `supabase` (v4 backend).
+
+cryptography>=43.0.0,<46.0.0
+supabase>=2.4.0,<3.0.0

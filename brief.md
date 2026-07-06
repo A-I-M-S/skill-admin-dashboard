@@ -44,22 +44,20 @@ Out of scope for v1: public exposure, mobile-first, multi-user / RBAC, WebSocket
 
 ## Existing skills — quick reference
 
-Read these files end-to-end before planning:
+**All upstream reference files are snapshotted into `references/upstream/` in this repo. Read from there. Do not read from absolute paths.**
 
-- `/root/.openclaw/workspace/dev/projects/openclaw-control-center/src/server.ts` — reference Fastify boot pattern
-- `/root/.openclaw/workspace/dev/projects/openclaw-control-center/src/config.ts` — env loading + safety defaults
-- `/root/.openclaw/workspace/dev/projects/openclaw-control-center/src/auth/` — session cookies + CSRF
-- `/root/.openclaw/workspace/dev/projects/openclaw-control-center/src/routes/` — Fastify route module pattern
-- `/root/.openclaw/workspace/dev/projects/openclaw-control-center/src/views/` — EJS layout + partials
-- `/root/.openclaw/workspace/dev/projects/openclaw-control-center/package.json` — pinned versions
-- `/root/.openclaw/workspace/dev/projects/skill-secret/` — `bin/secret` CLI to wrap
-- `/root/.openclaw/workspace/dev/projects/skill-secret/SKILL.md` — vault contract
-- `/root/.openclaw/skills/rag-qdrant/SKILL.md` — RAG API surface
-- `/root/.openclaw/workspace/dev/brief.md` — the original skill-chatbot brief this template is mirrored from
-- `/etc/systemd/system/aoa.service` and `/etc/systemd/system/openclaw-control-center.service` — systemd unit patterns (read only, do not modify)
-- `/root/.openclaw/workspace/dev/projects/openclaw-control-center/.env.example` — env var pattern
+Key files to read end-to-end before planning:
 
-If any path has changed since this brief was written, search `~/.openclaw/workspace/dev/` for the latest location.
+- `references/upstream/openclaw-control-center/src/` — full source tree of the reference implementation (Fastify + EJS + Alpine + pino). Look at `src/index.ts`, `src/config.ts`, `src/runtime/local-token-auth.ts`, `src/ui/server.ts`, `src/runtime/cron-overview.ts` for the closest analogues.
+- `references/upstream/openclaw-control-center/package.json` — pinned versions
+- `references/upstream/openclaw-control-center/.env.example` — env var pattern (note the `LOCAL_TOKEN_AUTH_REQUIRED` and `READONLY_MODE` patterns)
+- `references/upstream/skill-secret/SKILL.md` — vault contract
+- `references/upstream/skill-secret/secret.py` + `flows.py` — `bin/secret` CLI to wrap
+- `references/upstream/rag-qdrant/SKILL.md` — RAG API surface (ingest helpers + collection stats)
+- `references/upstream/systemd/aoa.service` + `openclaw-control-center.service` — systemd unit patterns (templates; do not modify the originals)
+- `references/upstream/skill-chatbot-brief.md` — the original skill-chatbot brief this template is mirrored from
+
+If `references/upstream/` is missing a file you need, stop and ask the user.
 
 ## Phased delivery (each phase = 1 PR)
 
