@@ -74,6 +74,8 @@ export const LOCAL_TOKEN_HEADER = 'x-local-token' as const;
 export const UI_TIMEZONE = readTimeZoneEnv(process.env.UI_TIMEZONE, 'UTC');
 
 // skill-secret subprocess env (forwarded to bin/secret by lib/bin-secret.ts).
+// These come from the dashboard's own env (systemd EnvironmentFile=/.env),
+// NEVER from the request body — see Risk #4 in the plan.
 export const SKILL_SECRET_KMS_BACKEND = readOptionalStringEnv(process.env.SKILL_SECRET_KMS_BACKEND);
 export const SKILL_SECRET_KMS_PROJECT_URL = readOptionalStringEnv(
   process.env.SKILL_SECRET_KMS_PROJECT_URL,
@@ -82,6 +84,16 @@ export const SKILL_SECRET_KMS_API_BLOB = readOptionalStringEnv(
   process.env.SKILL_SECRET_KMS_API_BLOB,
 );
 export const SKILL_SECRET_PASSPHRASE = readOptionalStringEnv(process.env.SKILL_SECRET_PASSPHRASE);
+
+// Path to the bin/secret wrapper script. Defaults to the live installation in
+// the sibling skill-secret project. The local fallback at
+// references/upstream/skill-secret/bin-secret-wrapper is also valid — useful
+// when the sibling project is not checked out.
+const SKILL_SECRET_BIN_FALLBACK = '/root/.openclaw/workspace/dev/projects/skill-secret/bin/secret';
+export const SKILL_SECRET_BIN = readStringEnv(
+  process.env.SKILL_SECRET_BIN,
+  SKILL_SECRET_BIN_FALLBACK,
+);
 
 // Tool path resolution for cron / sessions_list / opencode.
 export const OPENCLAW_BIN = readStringEnv(process.env.OPENCLAW_BIN, '/usr/local/bin:/usr/bin');
@@ -119,6 +131,7 @@ export const config: AppConfig = {
     kmsProjectUrl: SKILL_SECRET_KMS_PROJECT_URL,
     kmsApiBlob: SKILL_SECRET_KMS_API_BLOB,
     passphrase: SKILL_SECRET_PASSPHRASE,
+    binPath: SKILL_SECRET_BIN,
   },
   auth: {
     adminUser: ADMIN_USER,
