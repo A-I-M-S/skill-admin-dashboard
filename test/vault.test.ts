@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
@@ -579,6 +580,198 @@ describe('/ status dashboard + bin/secret subprocess wrapper (Issue #4)', () => 
       const res = await request(app.server).get('/vault').set('Cookie', cookie);
       expect(res.status).toBe(200);
       expect(res.text).toContain('No secrets');
+    });
+  });
+
+  describe('/vault/init form + audit log (Issue #6)', () => {
+    /**
+     * Issue #6 — the form is mutating and should be CSRF-protected. We need a
+     * helper to fetch the CSRF token from the GET /vault/init page, then
+     * submit POST /vault/init with the token in the body.
+     */
+    async function openInitFormAndCsrf(cookie: string): Promise<string> {
+      const res = await request(app.server).get('/vault/init').set('Cookie', cookie);
+      const match = /name="_csrf"\s+value="([^"]+)"/.exec(res.text);
+      if (!match) throw new Error('csrf token not found on /vault/init');
+      return match[1] ?? '';
+    }
+
+    it('redirects unauthenticated GET /vault/init to /login', async () => {
+      const res = await request(app.server).get('/vault/init').redirects(0);
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe('/login');
+    });
+
+    it('renders the init form for an authenticated user (with CSRF token)', async () => {
+      mock.setDefault(() => ({ code: 0, stdout: '{}' }));
+      const cookie = (await loginAndGetCookies(app, 'admin', 'correct-horse-battery-staple').then(setCookieFromResponse));
+      const res = await request(app.server).get('/vault/init').set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('name="url"');
+      expect(res.text).toContain('name="apiKey"');
+      expect(res.text).toContain('name="confirm"');
+      expect(res.text).toMatch(/name="_csrf"\s+value="[^"]+"/);
+    });
+
+    it('POST /vault/init WITHOUT csrf token returns 403', async () => {
+      const cookie = (await loginAndGetCookies(app, 'admin', 'correct-horse-battery-staple').then(setCookieFromResponse));
+      const res = await request(app.server)
+        .post('/vault/init')
+        .type('form')
+        .set('Cookie', cookie)
+        .send({
+          url: 'https://abcdefghijkl.supabase.co',
+          apiKey: 'a'.repeat(20),
+          confirm: 'on',
+        });
+      expect(res.status).toBe(403);
+      expect(res.text.toLowerCase()).toContain('csrf');
+    });
+
+    it('POST /vault/init happy path: invokes bin/secret with --api-key-file and writes audit', async () => {
+      // Capture bin/secret invocation args.
+      let capturedInitCall: { args: string[]; env: NodeJS.ProcessEnv } | null = null;
+
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'init',
+        (call) => {
+          capturedInitCall = { args: [...call.args], env: { ...call.env } };
+          // Real bin/secret slurps the file; the harness can't see the file
+          // because the route writes it via fs.promises inside the temp dir.
+          // We just confirm the flag shape from spawn args.
+          return {
+            code: 0,
+            stdout: JSON.stringify({ ok: true, url: 'https://abcdefghijkl.supabase.co' }),
+          };
+        },
+      );
+
+      // Read the audit log after submission to confirm shape.
+      const cookie = (await loginAndGetCookies(app, 'admin', 'correct-horse-battery-staple').then(setCookieFromResponse));
+      const csrf = await openInitFormAndCsrf(cookie);
+      const apiKey = 'a'.repeat(40);
+      const res = await request(app.server)
+        .post('/vault/init')
+        .type('form')
+        .set('Cookie', cookie)
+        .send({
+          _csrf: csrf,
+          url: 'https://abcdefghijkl.supabase.co',
+          apiKey,
+          confirm: 'on',
+        });
+      expect(res.status).toBe(303);
+      expect(res.headers.location).toBe('/vault/init?flash=ok');
+
+      // Args shape — must include --url and --api-key-file; the API key
+      // MUST NOT appear as a literal in the args (Risk #4).
+      expect(capturedInitCall).not.toBeNull();
+      const args = capturedInitCall!.args;
+      expect(args[0]).toBe('init');
+      expect(args).toContain('--url');
+      expect(args[args.indexOf('--url') + 1]).toBe('https://abcdefghijkl.supabase.co');
+      expect(args).toContain('--api-key-file');
+      const keyFilePath = args[args.indexOf('--api-key-file') + 1];
+      expect(keyFilePath).toMatch(/runtime\/tmp\/.*\/key$/);
+      // The apiKey body MUST NOT have ended up as an arg token.
+      expect(args.join('\n')).not.toContain(apiKey);
+      expect(args.join('\n')).not.toContain('a'.repeat(8));
+
+      // Audit log entry.
+      const auditPath = process.env.AUTH_AUDIT_LOG as string;
+      const auditText = await readFile(auditPath, 'utf8');
+      // Last line is the vault.init entry.
+      const lines = auditText.split('\n').filter(Boolean);
+      const lastLine = lines[lines.length - 1] ?? '';
+      const parsed = JSON.parse(lastLine) as Record<string, unknown>;
+      expect(parsed.action).toBe('vault.init');
+      expect(parsed.user).toBe('admin');
+      expect(parsed.vault).toBe('skill-secret');
+      expect(typeof parsed.urlHash).toBe('string');
+      expect((parsed.urlHash as string)).toHaveLength(12);
+      expect(parsed.outcome).toBe('success');
+      // No apiKey bytes in the audit line.
+      expect(lastLine).not.toContain(apiKey);
+      expect(lastLine).not.toContain('a'.repeat(8));
+
+      // Temp file is gone.
+      const { stat } = await import('node:fs/promises');
+      await expect(stat(keyFilePath)).rejects.toThrow();
+
+      // Persisted state assertion: apiKey not echoed in the response.
+      // The redirect body is empty (303), but if anything was logged via
+      // pino we want to assert no leak. Vitest captures pino via the
+      // LOG_LEVEL=silent test env.
+    });
+
+    it('POST /vault/init still cleans up temp file when bin/secret fails', async () => {
+      let observedArgs: string[] | null = null;
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'init',
+        (call) => {
+          observedArgs = [...call.args];
+          return { code: 9, stdout: '{"ok":false,"reason":"invalid_key"}', stderr: 'ERROR: invalid api key' };
+        },
+      );
+      const cookie = (await loginAndGetCookies(app, 'admin', 'correct-horse-battery-staple').then(setCookieFromResponse));
+      const csrf = await openInitFormAndCsrf(cookie);
+      const res = await request(app.server)
+        .post('/vault/init')
+        .type('form')
+        .set('Cookie', cookie)
+        .send({
+          _csrf: csrf,
+          url: 'https://abcdefghijkl.supabase.co',
+          apiKey: 'b'.repeat(40),
+          confirm: 'on',
+        });
+      expect(res.status).toBe(502);
+      expect(res.text).toContain('Vault init failed');
+      expect(observedArgs).not.toBeNull();
+      const keyFilePath = observedArgs![observedArgs!.indexOf('--api-key-file') + 1];
+      const { stat } = await import('node:fs/promises');
+      await expect(stat(keyFilePath)).rejects.toThrow();
+
+      // Audit log records the failure.
+      const auditPath = process.env.AUTH_AUDIT_LOG as string;
+      const text = await readFile(auditPath, 'utf8');
+      const last = (text.split('\n').filter(Boolean).pop() ?? '');
+      const parsed = JSON.parse(last) as Record<string, unknown>;
+      expect(parsed.action).toBe('vault.init');
+      expect(parsed.outcome).toBe('failure');
+      expect(parsed.detail).toBe('non_zero_exit');
+      expect(last).not.toContain('b'.repeat(40));
+    });
+
+    it('rejects invalid URLs and apiKey bodies without invoking bin/secret', async () => {
+      let binSecretCalled = false;
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'init',
+        () => {
+          binSecretCalled = true;
+          return { code: 0, stdout: '{}' };
+        },
+      );
+      const cookie = (await loginAndGetCookies(app, 'admin', 'correct-horse-battery-staple').then(setCookieFromResponse));
+      const csrf = await openInitFormAndCsrf(cookie);
+
+      const cases = [
+        { body: { _csrf: csrf, url: 'http://insecure.example.com', apiKey: 'a'.repeat(40), confirm: 'on' }, label: 'http not https' },
+        { body: { _csrf: csrf, url: 'https://evil.example.com', apiKey: 'a'.repeat(40), confirm: 'on' }, label: 'non-supabase host' },
+        { body: { _csrf: csrf, url: 'https://abc.supabase.co', apiKey: 'short', confirm: 'on' }, label: 'too-short api key' },
+        { body: { _csrf: csrf, url: 'https://abc.supabase.co', apiKey: '', confirm: 'on' }, label: 'empty api key' },
+        { body: { _csrf: csrf, url: 'https://abc.supabase.co', apiKey: 'a'.repeat(40), confirm: '' }, label: 'no confirm' },
+      ];
+      for (const c of cases) {
+        const res = await request(app.server)
+          .post('/vault/init')
+          .type('form')
+          .set('Cookie', cookie)
+          .send(c.body);
+        expect(res.status).toBe(400);
+        expect(res.text).toContain('Vault init failed');
+      }
+      expect(binSecretCalled).toBe(false);
     });
   });
 });

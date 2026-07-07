@@ -1,0 +1,84 @@
+<h1>Vault · Init</h1>
+<p class="muted">
+  Initialise the Supabase KMS vault. The API key never leaves this host except
+  as a <code>--api-key-file</code> argument to <code>bin/secret init</code>, and is deleted
+  immediately after. See Risks #2, #4, #13.
+</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash"><%= flash %></div>
+<% } %>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">init OK</span>';
+    if (state === 'not_initialized') return '<span class="badge warn">not initialised</span>';
+    if (state === 'unreachable') return '<span class="badge warn">vault unreachable</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid input</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
+<% if (view.state !== 'ok') { %>
+  <div class="error">
+    <%- stateBadge(view.state) %>
+    <strong>Vault init failed.</strong>
+    <% if (view.error) { %> <span class="muted"><%= view.error %></span><% } %>
+  </div>
+<% } %>
+
+<form method="post" action="/vault/init" class="form" autocomplete="off">
+  <%- include('../partials/csrf-input') %>
+  <label for="url">Project URL</label>
+  <input
+    type="url"
+    id="url"
+    name="url"
+    value="<%= view.url %>"
+    placeholder="https://abcdefghijkl.supabase.co"
+    pattern="https://[A-Za-z0-9._-]+\.supabase\.co/?"
+    required
+    maxlength="256"
+  />
+  <p class="muted">Must be an HTTPS URL on <code>.supabase.co</code>.</p>
+
+  <label for="apiKey">Service role / API key</label>
+  <textarea
+    id="apiKey"
+    name="apiKey"
+    placeholder="Paste the Supabase service_role key here. It will be written to runtime/tmp/, passed to bin/secret via --api-key-file, then deleted."
+    required
+    minlength="16"
+    maxlength="4096"
+    rows="6"
+    spellcheck="false"
+    autocapitalize="off"
+    autocomplete="off"
+  ></textarea>
+  <p class="muted">
+    The key is written to <code>runtime/tmp/&lt;uuid&gt;/key</code> with mode 0o600,
+    passed via <code>--api-key-file</code>, and unlinked immediately after the call returns.
+    It is <strong>never</strong> logged, returned in the response, or persisted.
+  </p>
+
+  <label class="confirm">
+    <input type="checkbox" id="confirm" name="confirm" required />
+    I understand this will (re)initialise the skill-secret vault.
+  </label>
+
+  <button type="submit">Initialize vault</button>
+</form>
+
+<style>
+  .form { display: flex; flex-direction: column; gap: 0.4rem; max-width: 640px; }
+  .form input[type=url], .form textarea { padding: 0.4rem 0.5rem; font-family: ui-monospace, monospace; }
+  .form textarea { font-size: 0.85rem; }
+  .form label.confirm { display: flex; gap: 0.5rem; align-items: center; font-size: 0.9rem; }
+  .form button[type=submit] { width: max-content; padding: 0.5rem 0.9rem; }
+  .muted { color: #6a7d83; font-size: 0.85rem; margin: 0 0 0.6rem 0; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+</style>

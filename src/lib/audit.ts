@@ -8,7 +8,8 @@ export type AuditAction =
   | 'csrf.failure'
   | 'session.regenerate'
   | 'session.destroy'
-  | 'basic-auth.fallback';
+  | 'basic-auth.fallback'
+  | 'vault.init';
 
 export interface AuditEntry {
   ts: string;
@@ -18,6 +19,11 @@ export interface AuditEntry {
   userAgent?: string;
   reason?: string;
   requestId?: string;
+  // Optional metadata: vault / url_hash / ip — used by vault.init etc.
+  vault?: string;
+  urlHash?: string;
+  outcome?: 'success' | 'failure';
+  detail?: string;
 }
 
 function sanitize(input: string | undefined): string | undefined {
@@ -45,6 +51,10 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
     userAgent: sanitize(entry.userAgent),
     reason: sanitize(entry.reason),
     requestId: sanitize(entry.requestId),
+    vault: sanitize(entry.vault),
+    urlHash: sanitize(entry.urlHash),
+    outcome: entry.outcome,
+    detail: sanitize(entry.detail),
   };
   const line = `${JSON.stringify(payload)}\n`;
 
