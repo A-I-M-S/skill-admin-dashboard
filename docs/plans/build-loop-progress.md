@@ -17,3 +17,9 @@
 - commit: 128193e
 - test result: 57/57 green (typecheck + lint + vitest, +6 from #5)
 - pm2 healthz: 200 {"ok":true}
+## issue #7: Phase 2 #6: /rag collection stats + source-file listing
+- branch: phase-2-issue-6-rag-stats
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/21
+- commit: ed70ecd
+- test result: 61/61 green (typecheck + lint + vitest, +4 from #6)
+- pm2 healthz: 200 {"ok":true}
