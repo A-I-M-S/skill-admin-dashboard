@@ -1,4 +1,5 @@
 import fastifyFormbody from '@fastify/formbody';
+import fastifyMultipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { HOST, LOG_LEVEL, config } from './config';
 import { registerCsrf } from './auth/csrf';
@@ -12,6 +13,7 @@ import { registerVaultListRoute } from './routes/vault/list';
 import { registerVaultShowRoute } from './routes/vault/show';
 import { registerVaultInitRoute } from './routes/vault/init';
 import { registerRagStatsRoute } from './routes/rag/stats';
+import { registerRagIngestRoute } from './routes/rag/ingest';
 import type { CsrfToken } from './types';
 
 declare module 'fastify' {
@@ -58,6 +60,13 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   await app.register(fastifyFormbody);
+  // Register multipart BEFORE the routes — required for /rag/ingest (issue #8).
+  // 10 MiB cap on the multipart body is mirrored by MAX_FILE_BYTES in
+  // src/routes/rag/ingest.ts (Risk #8).
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+    attachFieldsToBody: true,
+  });
 
   // Order matters: cookie → session → csrf → local-token fallback → routes.
   await registerSession(app);
@@ -77,6 +86,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerVaultShowRoute(app);
   await registerVaultInitRoute(app);
   await registerRagStatsRoute(app);
+  await registerRagIngestRoute(app);
 
   return app;
 }

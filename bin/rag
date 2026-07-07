@@ -104,11 +104,105 @@ def _list_sources(rag: Any) -> int:
         return _emit_failure(f"list_sources exception: {exc}", 14)
 
 
-def _dispatch(cmd: str, rag: Any) -> int:
+def _parse_kv_args(args: List[str], start: int) -> Dict[str, str]:
+    """Collect --key value / --flag pairs from args[start:]."""
+    out: Dict[str, str] = {}
+    i = start
+    while i < len(args):
+        token = args[i]
+        if token.startswith("--") and i + 1 < len(args) and not args[i + 1].startswith("--"):
+            out[token[2:].replace("-", "_")] = args[i + 1]
+            i += 2
+        else:
+            i += 1
+    return out
+
+
+def _ingest_file(rag: Any, args: List[str]) -> int:
+    """`rag ingest-file <path> [--source ...] [--chunk-size ...] [--overlap ...]`."""
+    if len(args) < 2:
+        sys.stderr.write("usage: rag ingest-file <path> [--source ...]\n")
+        return 2
+    file_path = args[1]
+    kv = _parse_kv_args(args, 2)
+    try:
+        chunks: Any
+        if hasattr(rag, "ingest_file"):
+            chunks = rag.ingest_file(
+                file_path,
+                source=kv.get("source"),
+                chunk_size=kv.get("chunk_size"),
+                overlap=kv.get("overlap"),
+            )
+        else:
+            cls = rag.RAG
+            instance = cls()
+            ingest = getattr(instance, "ingest_file", None)
+            if ingest is None:
+                return _emit_failure("sibling missing rag.ingest_file()", 21)
+            chunks = ingest(
+                file_path,
+                source=kv.get("source"),
+                chunk_size=kv.get("chunk_size"),
+                overlap=kv.get("overlap"),
+            )
+        if isinstance(chunks, dict):
+            return _json_out(chunks)
+        return _json_out({"chunks": int(chunks) if chunks is not None else 0})
+    except Exception as exc:  # noqa: BLE001
+        return _emit_failure(f"ingest_file exception: {exc}", 22)
+
+
+def _ingest_text(rag: Any, args: List[str]) -> int:
+    """`rag ingest-text <text> [--source ...] [--chunk-size ...] [--overlap ...]``.
+
+    Note: text is passed as a positional arg, NOT stdin. The dashboard
+    forwards the text via spawn's args[] (no shell), so the wrapper sees
+    it as argv[1]. This is safe because spawn uses execve() — the text
+    never goes through a shell parser.
+    """
+    if len(args) < 2:
+        sys.stderr.write("usage: rag ingest-text <text> [--source ...]\n")
+        return 2
+    text = args[1]
+    kv = _parse_kv_args(args, 2)
+    try:
+        chunks: Any
+        if hasattr(rag, "ingest_text"):
+            chunks = rag.ingest_text(
+                text,
+                source=kv.get("source"),
+                chunk_size=kv.get("chunk_size"),
+                overlap=kv.get("overlap"),
+            )
+        else:
+            cls = rag.RAG
+            instance = cls()
+            ingest = getattr(instance, "ingest_text", None)
+            if ingest is None:
+                return _emit_failure("sibling missing rag.ingest_text()", 31)
+            chunks = ingest(
+                text,
+                source=kv.get("source"),
+                chunk_size=kv.get("chunk_size"),
+                overlap=kv.get("overlap"),
+            )
+        if isinstance(chunks, dict):
+            return _json_out(chunks)
+        return _json_out({"chunks": int(chunks) if chunks is not None else 0})
+    except Exception as exc:  # noqa: BLE001
+        return _emit_failure(f"ingest_text exception: {exc}", 32)
+
+
+def _dispatch(cmd: str, rag: Any, args: List[str]) -> int:
     if cmd == "stats":
         return _stats(rag)
     if cmd == "list-sources":
         return _list_sources(rag)
+    if cmd == "ingest-file":
+        return _ingest_file(rag, args)
+    if cmd == "ingest-text":
+        return _ingest_text(rag, args)
     sys.stderr.write(f"unknown subcommand: {cmd}\n")
     return 2
 
@@ -134,7 +228,7 @@ def main() -> int:
         return _emit_unavailable(f"import rag_qdrant failed: {exc}")
 
     try:
-        return _dispatch(cmd, rag_qdrant)
+        return _dispatch(cmd, rag_qdrant, args)
     except Exception as exc:  # noqa: BLE001
         traceback.print_exc(file=sys.stderr)
         return _emit_failure(f"unhandled exception: {exc}", 99)

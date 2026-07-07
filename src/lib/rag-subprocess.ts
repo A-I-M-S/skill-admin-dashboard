@@ -220,3 +220,118 @@ export async function listSources(
     data: projectSourceList(result.data),
   };
 }
+
+export interface RagIngestOptions {
+  /** Stable tag / source identifier (e.g. "meeting-2026-07-05"). */
+  source?: string;
+  /** Chunk size in chars (default 800). Sent through; the wrapper may clamp. */
+  chunkSize?: number;
+  /** Overlap between adjacent chunks (default 200). */
+  overlap?: number;
+  /** Multi-call args appended after the dashboard's own; tests use this. */
+  extraArgs?: string[];
+  timeoutMs?: number;
+}
+
+export interface RagIngestResult {
+  chunks: number;
+  source: string;
+}
+
+/**
+ * Coerce an unknown `chunks` count from the upstream JSON into a safe
+ * non-negative integer. If upstream returns garbage, default to 0.
+ */
+function coerceChunkCount(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    return Math.floor(value);
+  }
+  return 0;
+}
+
+function buildIngestResult(
+  raw: unknown,
+  fallbackSource: string,
+): RagIngestResult {
+  if (raw && typeof raw === 'object') {
+    const it = raw as Record<string, unknown>;
+    const source =
+      typeof it['source'] === 'string' && (it['source'] as string).length > 0
+        ? (it['source'] as string)
+        : fallbackSource;
+    return { chunks: coerceChunkCount(it['chunks']), source };
+  }
+  return { chunks: 0, source: fallbackSource };
+}
+
+/**
+ * Ingest a file from disk. `filePath` MUST be a path that exists on this
+ * host — the dashboard writes the user-uploaded file to a mode 0o600
+ * temp file under `runtime/tmp/<uuid>/...` before invoking this. The
+ * wrapper reads from disk; the API key / content never crosses a process
+ * boundary as a request-body arg (Risk #5, Risk #8 caps).
+ */
+export async function ingestFile(
+  filePath: string,
+  options: RagIngestOptions = {},
+): Promise<RagCallResult<RagIngestResult>> {
+  const args: string[] = ['ingest-file', filePath];
+  if (options.source) args.push('--source', options.source);
+  if (typeof options.chunkSize === 'number') {
+    args.push('--chunk-size', String(options.chunkSize));
+  }
+  if (typeof options.overlap === 'number') {
+    args.push('--overlap', String(options.overlap));
+  }
+  const callOpts: RagCallOptions = {
+    timeoutMs: options.timeoutMs ?? 60_000,
+    args: options.extraArgs,
+  };
+  const result = await callRag<unknown>(args, callOpts);
+  if (!result.ok || result.data === null) {
+    return { ...result, data: null };
+  }
+  return {
+    ok: true,
+    reason: 'ok',
+    raw: result.raw,
+    data: buildIngestResult(result.data, options.source ?? ''),
+  };
+}
+
+/**
+ * Ingest a text string directly. The text is forwarded through
+ * `spawn`-args (not stdin), which means:
+ *  - it is safe from shell injection because we use spawn, not shell;
+ *  - it is bounded to the process argv limit (~ 128 KiB on Linux).
+ *
+ * The dashboard's route layer rejects requests with `text` larger than
+ * 1 MiB (Risk #8) so we never hit argv limits.
+ */
+export async function ingestText(
+  text: string,
+  options: RagIngestOptions = {},
+): Promise<RagCallResult<RagIngestResult>> {
+  const args: string[] = ['ingest-text', text];
+  if (options.source) args.push('--source', options.source);
+  if (typeof options.chunkSize === 'number') {
+    args.push('--chunk-size', String(options.chunkSize));
+  }
+  if (typeof options.overlap === 'number') {
+    args.push('--overlap', String(options.overlap));
+  }
+  const callOpts: RagCallOptions = {
+    timeoutMs: options.timeoutMs ?? 60_000,
+    args: options.extraArgs,
+  };
+  const result = await callRag<unknown>(args, callOpts);
+  if (!result.ok || result.data === null) {
+    return { ...result, data: null };
+  }
+  return {
+    ok: true,
+    reason: 'ok',
+    raw: result.raw,
+    data: buildIngestResult(result.data, options.source ?? ''),
+  };
+}
