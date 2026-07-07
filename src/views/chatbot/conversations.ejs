@@ -1,0 +1,134 @@
+<h1>Chatbot · Conversations</h1>
+<p class="muted">
+  Active conversations reported by <code>bin/chatbot-admin list-conversations</code>.
+  Filter by phone prefix in the form below. Read-only in v1.
+</p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'chatbot_admin_unavailable') return '<span class="badge warn">wrapper not installed</span>';
+    if (state === 'bad_phone') return '<span class="badge warn">bad phone</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    if (state === 'bridge_unreachable') return '<span class="badge warn">bridge unreachable</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
+<div class="meta">
+  <p>
+    State: <%- stateBadge(view.state) %>
+    · binary: <code><%= view.binPath %></code>
+    <% if (view.available) { %>
+      · <span class="ok">installed</span>
+    <% } else { %>
+      · <span class="warn">missing</span>
+    <% } %>
+  </p>
+  <% if (view.error) { %>
+    <p class="muted"><%= view.error %></p>
+  <% } %>
+</div>
+
+<form method="get" action="/chatbot/conversations" class="filter">
+  <label for="phone">Phone filter</label>
+  <input type="text" id="phone" name="phone" placeholder="e.g. 6591234567"
+         value="<%= view.phoneFilter %>" pattern="^\+?\d{0,20}$" />
+  <button type="submit">Apply</button>
+  <% if (view.phoneFilter !== '') { %>
+    <a href="/chatbot/conversations" class="clear">clear</a>
+  <% } %>
+</form>
+
+<% if (view.state === 'chatbot_admin_unavailable') { %>
+  <div class="card warn">
+    <h3>skill-chatbot admin wrapper not installed</h3>
+    <p>The <code>bin/chatbot-admin</code> wrapper inside the <code>skill-chatbot</code> repo is
+       not installed at <code><%= view.binPath %></code>. Until that wrapper ships (cross-repo PR),
+       this page returns 503 with <code>Retry-After: 60</code>.</p>
+    <p>See <code>docs/plans/phase-4-chatbot-contract.md</code> in this dashboard's repo for the
+       envelope spec the dashboard expects.</p>
+  </div>
+<% } else if (view.state === 'ok' && view.conversations.length === 0) { %>
+  <div class="flash">No conversations match<%= view.phoneFilter ? ' the filter "' + view.phoneFilter + '"' : '' %>.</div>
+<% } else if (view.state === 'ok') { %>
+  <table class="conversations">
+    <thead>
+      <tr>
+        <th>phone</th>
+        <th>last message</th>
+        <th>flow</th>
+        <th>language</th>
+        <th>msg / 24h</th>
+        <th>handoff</th>
+        <th>detail</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const c of view.conversations) { %>
+        <tr>
+          <td><code><%= c.phone %></code></td>
+          <td>
+            <% if (c.lastMessageAt) { %>
+              <%= c.lastMessageAt %>
+              <% if (c.lastMessageId) { %>
+                <span class="muted">· <%= c.lastMessageId %></span>
+              <% } %>
+            <% } else { %>
+              <span class="muted">—</span>
+            <% } %>
+          </td>
+          <td>
+            <span class="flow flow-<%= c.flow %>"><%= c.flow %></span>
+          </td>
+          <td><%= c.language ? c.language : '\u2014' %></td>
+          <td><%= c.messageCount24h %></td>
+          <td>
+            <% if (c.handoffOpen) { %>
+              <span class="badge warn">open</span>
+              <% if (c.handoffReason) { %>
+                <div class="muted"><%= c.handoffReason %></div>
+              <% } %>
+              <% if (c.handoffSince) { %>
+                <div class="muted">since <%= c.handoffSince %></div>
+              <% } %>
+            <% } else { %>
+              <span class="badge muted">none</span>
+            <% } %>
+          </td>
+          <td>
+            <a href="/chatbot/conversations/<%= encodeURIComponent(c.phone) %>"
+               class="detail-link">last 50 msgs →</a>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+<% } %>
+
+<style>
+  .meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .meta .ok { color: #155724; }
+  .meta .warn { color: #856404; }
+  form.filter { display: flex; gap: 0.4rem; align-items: center; margin: 0.6rem 0; }
+  form.filter input { padding: 0.25rem 0.5rem; border: 1px solid #cfd8dc; border-radius: 3px; font-family: ui-monospace, monospace; }
+  form.filter button { padding: 0.25rem 0.7rem; background: #114b5f; color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+  form.filter .clear { font-size: 0.85rem; margin-left: 0.4rem; }
+  table.conversations { border-collapse: collapse; width: 100%; }
+  table.conversations th, table.conversations td { border-bottom: 1px solid #e1e6e9; padding: 0.4rem 0.6rem; vertical-align: top; text-align: left; }
+  table.conversations th { background: #f4f7f9; font-size: 0.85rem; }
+  table.conversations .flow { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; }
+  table.conversations .flow-idle { background: #e9ecef; color: #495057; }
+  table.conversations .flow-handoff { background: #fff3cd; color: #856404; }
+  table.conversations .flow-admin_send { background: #d4edda; color: #155724; }
+  table.conversations .detail-link { font-size: 0.85rem; }
+  .muted { color: #6a7d83; font-size: 0.85rem; margin: 0.2rem 0 0.6rem 0; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+  .card.warn { background: #fff3cd; border: 1px solid #ffeeba; padding: 0.8rem 1rem; border-radius: 4px; margin: 0.6rem 0; }
+  .card.warn h3 { margin: 0 0 0.4rem 0; font-size: 1rem; }
+  .card.warn p { margin: 0.2rem 0; }
+</style>

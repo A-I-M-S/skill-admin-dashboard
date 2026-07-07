@@ -112,6 +112,15 @@ export const OPENCLAW_BIN = readStringEnv(process.env.OPENCLAW_BIN, '/usr/local/
 const LOGS_SERVICES_FALLBACK = 'aoa,openclaw-control-center,wa-bridge,orchestrator';
 export const LOGS_SERVICES = readStringEnv(process.env.LOGS_SERVICES, LOGS_SERVICES_FALLBACK);
 
+// Path to the bin/chatbot-admin wrapper script (skill-chatbot). Defaults
+// to the sibling skill-chatbot project. The dashboard returns 503 (Phase
+// 4 contract) until this wrapper is installed (issue #13/#14/#15).
+const CHATBOT_ADMIN_BIN_FALLBACK = '/root/.openclaw/workspace/dev/projects/skill-chatbot/bin/chatbot-admin';
+export const CHATBOT_ADMIN_BIN = readStringEnv(
+  process.env.CHATBOT_ADMIN_BIN,
+  CHATBOT_ADMIN_BIN_FALLBACK,
+);
+
 // Auth (Issue #3). ADMIN_PASSWORD is hashed with argon2id lazily by auth/session.ts
 // and never appears in the config object — raw env values stay in module-local consts.
 export const ADMIN_USER = readStringEnv(process.env.ADMIN_USER, 'admin');
@@ -160,6 +169,7 @@ export const config: AppConfig = {
   },
   openclawBin: OPENCLAW_BIN,
   logsServices: LOGS_SERVICES,
+  chatbotAdmin: { binPath: CHATBOT_ADMIN_BIN },
   nodeEnv: NODE_ENV,
   logLevel: LOG_LEVEL,
 };
