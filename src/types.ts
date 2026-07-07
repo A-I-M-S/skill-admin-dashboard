@@ -33,6 +33,7 @@ export interface AppConfig {
   skillRag: SkillRagConfig;
   auth: AuthConfig;
   openclawBin: string;
+  logsServices: string;
   nodeEnv: string;
   logLevel: string;
 }

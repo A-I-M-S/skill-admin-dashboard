@@ -1,0 +1,145 @@
+<h1>Logs</h1>
+<p class="muted">
+  Last <strong>200</strong> lines per service, polled every <strong>5s</strong>.
+  Service list is configurable via the <code>LOGS_SERVICES</code> env var
+  (comma-separated). ANSI escapes are stripped server-side (Risk #9).
+</p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'unreachable') return '<span class="badge warn">unreachable</span>';
+    if (state === 'invalid_service') return '<span class="badge warn">invalid</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    if (state === 'non_zero_exit') return '<span class="badge warn">non-zero exit</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
+<% if (view.services.length === 0) { %>
+  <div class="error">
+    No log services configured. Set <code>LOGS_SERVICES=svc1,svc2,...</code> in the dashboard's
+    <code>.env</code> (default: aoa, openclaw-control-center, wa-bridge, orchestrator).
+  </div>
+<% } else { %>
+  <div class="tabs" data-tabs>
+    <% for (const [i, svc] of view.services.entries()) { %>
+      <button type="button"
+        class="tab <%= svc === view.active ? 'active' : '' %>"
+        data-tab="<%= svc %>"
+        role="tab"
+        aria-selected="<%= svc === view.active ? 'true' : 'false' %>">
+        <%= svc %>
+      </button>
+    <% } %>
+  </div>
+
+  <div class="status">
+    <span id="status-line">State: <%- stateBadge(view.initial.reason) %></span>
+    <button type="button" id="refresh-now" class="refresh">Refresh now</button>
+  </div>
+
+  <pre id="log-output" class="log" data-service="<%= view.active %>" data-cursor="<%= view.initial.cursor %>"><%- view.initial.text %></pre>
+
+  <script>
+    (function () {
+      const POLL_INTERVAL_MS = 5000;
+      const output = document.getElementById('log-output');
+      const status = document.getElementById('status-line');
+      const tabs = document.querySelectorAll('[data-tabs] .tab');
+      let activeService = output ? output.getAttribute('data-service') : '';
+      let cursor = output ? parseInt(output.getAttribute('data-cursor') || '0', 10) : 0;
+      let timer = null;
+      let polling = false;
+
+      function setStatus(reason) {
+        if (!status) return;
+        let cls = 'badge muted';
+        if (reason === 'ok') cls = 'badge ok';
+        else if (reason === 'unreachable' || reason === 'invalid_service' || reason === 'spawn_failed' || reason === 'non_zero_exit') cls = 'badge warn';
+        status.innerHTML = 'State: <span class="' + cls + '">' + reason + '</span>';
+      }
+
+      async function poll() {
+        if (!activeService || polling) return;
+        polling = true;
+        try {
+          const res = await fetch('/logs/' + encodeURIComponent(activeService) + '?since=' + cursor, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' },
+          });
+          if (!res.ok) {
+            setStatus(res.status === 503 ? 'unreachable' : 'non_zero_exit');
+            return;
+          }
+          const body = await res.json();
+          if (body && body.ok) {
+            if (body.text && body.text.length > 0 && output) {
+              output.textContent += body.text;
+              // Hard cap to avoid runaway memory.
+              if (output.textContent.length > 200000) {
+                output.textContent = output.textContent.slice(-200000);
+              }
+              output.scrollTop = output.scrollHeight;
+            }
+            cursor = typeof body.cursor === 'number' ? body.cursor : cursor;
+            setStatus(body.reason || 'ok');
+          } else {
+            setStatus((body && body.reason) || 'unreachable');
+          }
+        } catch (err) {
+          setStatus('unreachable');
+        } finally {
+          polling = false;
+        }
+      }
+
+      function switchTab(svc) {
+        if (!svc || svc === activeService) return;
+        activeService = svc;
+        cursor = 0;
+        if (output) {
+          output.setAttribute('data-service', svc);
+          output.setAttribute('data-cursor', '0');
+          output.textContent = '';
+        }
+        for (const t of tabs) {
+          const isActive = t.getAttribute('data-tab') === svc;
+          t.classList.toggle('active', isActive);
+          t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+        poll();
+      }
+
+      for (const t of tabs) {
+        t.addEventListener('click', () => switchTab(t.getAttribute('data-tab')));
+      }
+
+      const refreshBtn = document.getElementById('refresh-now');
+      if (refreshBtn) refreshBtn.addEventListener('click', () => poll());
+
+      timer = setInterval(poll, POLL_INTERVAL_MS);
+    })();
+  </script>
+<% } %>
+
+<style>
+  .tabs { display: flex; gap: 0.2rem; margin: 0.6rem 0 0.4rem 0; flex-wrap: wrap; }
+  .tab {
+    background: #f4f7f9; border: 1px solid #cfd8dc; padding: 0.3rem 0.7rem;
+    border-radius: 3px; cursor: pointer; font-size: 0.85rem; font-family: ui-monospace, monospace;
+  }
+  .tab.active { background: #114b5f; color: #fff; border-color: #114b5f; }
+  .status { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+  .refresh { font-size: 0.8rem; padding: 0.15rem 0.5rem; border: 1px solid #cfd8dc; background: #f4f7f9; border-radius: 3px; cursor: pointer; }
+  pre.log {
+    background: #0b3a4a; color: #f0f6f7; padding: 0.6rem; border-radius: 3px;
+    max-height: 480px; overflow: auto; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 0.78rem; line-height: 1.4; white-space: pre-wrap; word-break: break-all;
+  }
+  .muted { color: #6a7d83; font-size: 0.85rem; margin: 0.2rem 0 0.6rem 0; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+</style>
