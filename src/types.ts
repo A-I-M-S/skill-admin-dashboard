@@ -10,6 +10,10 @@ export interface SkillRagConfig {
   binPath: string;
 }
 
+export interface ChatbotAdminConfig {
+  binPath: string;
+}
+
 export interface AuthConfig {
   adminUser: string;
   sessionSecret: string;
@@ -34,6 +38,7 @@ export interface AppConfig {
   auth: AuthConfig;
   openclawBin: string;
   logsServices: string;
+  chatbotAdmin: ChatbotAdminConfig;
   nodeEnv: string;
   logLevel: string;
 }

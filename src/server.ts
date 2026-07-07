@@ -18,6 +18,8 @@ import { registerRagSearchRoute } from './routes/rag/search';
 import { registerCronRoute } from './routes/ops/cron';
 import { registerSessionsRoute } from './routes/ops/sessions';
 import { registerLogsRoute } from './routes/ops/logs';
+import { registerChatbotIndexRoute } from './routes/chatbot/index';
+import { registerConversationsRoute } from './routes/chatbot/conversations';
 import type { CsrfToken } from './types';
 
 declare module 'fastify' {
@@ -95,6 +97,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerCronRoute(app);
   await registerSessionsRoute(app);
   await registerLogsRoute(app);
+  await registerChatbotIndexRoute(app);
+  await registerConversationsRoute(app);
 
   return app;
 }
