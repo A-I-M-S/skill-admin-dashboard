@@ -16,6 +16,7 @@ import { registerRagStatsRoute } from './routes/rag/stats';
 import { registerRagIngestRoute } from './routes/rag/ingest';
 import { registerRagSearchRoute } from './routes/rag/search';
 import { registerCronRoute } from './routes/ops/cron';
+import { registerSessionsRoute } from './routes/ops/sessions';
 import type { CsrfToken } from './types';
 
 declare module 'fastify' {
@@ -91,6 +92,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerRagIngestRoute(app);
   await registerRagSearchRoute(app);
   await registerCronRoute(app);
+  await registerSessionsRoute(app);
 
   return app;
 }
