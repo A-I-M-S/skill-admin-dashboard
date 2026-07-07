@@ -1,0 +1,126 @@
+<h1>Chatbot · <%= view.phone || 'phone' %></h1>
+<p class="muted">
+  Last 50 messages (oldest first) for <code><%= view.phone %></code>, via
+  <code>bin/chatbot-admin list-messages</code>. Read-only.
+</p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'chatbot_admin_unavailable') return '<span class="badge warn">wrapper not installed</span>';
+    if (state === 'bad_phone') return '<span class="badge warn">bad phone</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    if (state === 'bridge_unreachable') return '<span class="badge warn">bridge unreachable</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+
+  function dirLabel(direction) {
+    if (direction === 'inbound') return 'in';
+    if (direction === 'outbound') return 'out';
+    if (direction === 'admin_send') return 'admin';
+    return direction;
+  }
+%>
+
+<p>
+  <a href="/chatbot/conversations" class="back">← back to conversations</a>
+</p>
+
+<div class="meta">
+  <p>
+    State: <%- stateBadge(view.state) %>
+    · binary: <code><%= view.binPath %></code>
+    <% if (view.available) { %>
+      · <span class="ok">installed</span>
+    <% } else { %>
+      · <span class="warn">missing</span>
+    <% } %>
+  </p>
+  <% if (view.error) { %>
+    <p class="muted"><%= view.error %></p>
+  <% } %>
+</div>
+
+<% if (view.state === 'chatbot_admin_unavailable') { %>
+  <div class="card warn">
+    <h3>skill-chatbot admin wrapper not installed</h3>
+    <p>The <code>bin/chatbot-admin</code> wrapper is not installed at <code><%= view.binPath %></code>.
+       This page will return 503 with <code>Retry-After: 60</code> until the wrapper ships.</p>
+  </div>
+<% } else if (view.state === 'bad_phone') { %>
+  <div class="error">
+    Invalid phone number. The path segment must match <code>^\+?\d{6,15}$</code>.
+  </div>
+<% } else if (view.state === 'ok' && view.messages.length === 0) { %>
+  <div class="flash">No messages found for this phone in the last 50-record window.</div>
+<% } else if (view.state === 'ok') { %>
+  <ol class="messages">
+    <% for (const m of view.messages) { %>
+      <li class="msg msg-<%= m.direction %>">
+        <header class="msg-header">
+          <span class="dir dir-<%= m.direction %>"><%= dirLabel(m.direction) %></span>
+          <time class="ts"><%= m.timestamp %></time>
+          <% if (m.tool) { %>
+            <span class="tool"><%= m.tool %></span>
+          <% } %>
+          <% if (m.flowAtSend) { %>
+            <span class="flow">flow=<%= m.flowAtSend %></span>
+          <% } %>
+          <% if (m.isAdmin) { %>
+            <span class="admin-tag">admin</span>
+          <% } %>
+          <% if (m.isFallback) { %>
+            <span class="fallback-tag">fallback</span>
+          <% } %>
+          <span class="muted msg-id">msg:<%= m.messageId %></span>
+        </header>
+        <p class="msg-body"><%= m.text %></p>
+        <% if (m.image) { %>
+          <p class="msg-image muted">image: <code><%= m.image %></code></p>
+        <% } %>
+      </li>
+    <% } %>
+  </ol>
+<% } else { %>
+  <div class="error">
+    Could not load messages: <%= view.error || view.state %>
+  </div>
+<% } %>
+
+<style>
+  .meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .meta .ok { color: #155724; }
+  .meta .warn { color: #856404; }
+  .back { font-size: 0.85rem; }
+  ol.messages { list-style: none; padding: 0; }
+  .msg {
+    border-left: 3px solid #e1e6e9; padding: 0.5rem 0.7rem;
+    margin: 0 0 0.6rem 0; background: #f8fafb;
+  }
+  .msg-inbound { border-left-color: #1d6f8a; }
+  .msg-outbound { border-left-color: #155724; }
+  .msg-admin_send { border-left-color: #6f4d0a; background: #fff8e1; }
+  .msg-header { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: baseline; font-size: 0.78rem; }
+  .dir { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-weight: 600; }
+  .dir-inbound { background: #d4edda; color: #155724; }
+  .dir-outbound { background: #cfe2ff; color: #084298; }
+  .dir-admin_send { background: #fff3cd; color: #856404; }
+  .ts { color: #495057; }
+  .tool { padding: 0 0.3rem; background: #e9ecef; color: #495057; border-radius: 3px; font-family: ui-monospace, monospace; }
+  .flow { color: #6a7d83; }
+  .admin-tag { padding: 0 0.3rem; background: #fff3cd; color: #856404; border-radius: 3px; font-weight: 600; }
+  .fallback-tag { padding: 0 0.3rem; background: #f8d7da; color: #721c24; border-radius: 3px; font-weight: 600; }
+  .msg-id { font-family: ui-monospace, monospace; }
+  .msg-body { margin: 0.3rem 0 0 0; white-space: pre-wrap; word-break: break-word; }
+  .msg-image { margin: 0.3rem 0 0 0; font-size: 0.8rem; }
+  .muted { color: #6a7d83; font-size: 0.85rem; margin: 0.2rem 0 0.6rem 0; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+  .card.warn { background: #fff3cd; border: 1px solid #ffeeba; padding: 0.8rem 1rem; border-radius: 4px; margin: 0.6rem 0; }
+  .card.warn h3 { margin: 0 0 0.4rem 0; font-size: 1rem; }
+  .card.warn p { margin: 0.2rem 0; }
+  .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 0.6rem 0.8rem; border-radius: 3px; }
+</style>
