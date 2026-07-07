@@ -5,7 +5,16 @@ const prettierConfig = require('eslint-config-prettier');
 
 module.exports = tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'runtime/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      'runtime/**',
+      // Third-party reference snapshots used by the Plan agent for context.
+      'references/**',
+      // This file uses CommonJS require() by necessity (ESM config is awkward).
+      'eslint.config.js',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

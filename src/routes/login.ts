@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
 import { generateCsrfToken } from '../auth/csrf';
 import { startSession, verifyAdminPassword } from '../auth/session';
