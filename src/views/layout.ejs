@@ -39,7 +39,7 @@
       <a href="/" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/') ? 'active' : '' %>">Overview</a>
       <a href="/vault" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/vault') ? 'active' : '' %>">Vault</a>
       <a href="/rag" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/rag') ? 'active' : '' %>">RAG</a>
-      <a href="/cron" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/cron') ? 'active' : '' %>" aria-disabled="true">Cron</a>
+      <a href="/cron" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/cron') ? 'active' : '' %>">Cron</a>
       <a href="/sessions" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/sessions') ? 'active' : '' %>" aria-disabled="true">Sessions</a>
       <a href="/logs" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/logs') ? 'active' : '' %>" aria-disabled="true">Logs</a>
       <a href="/chatbot" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/chatbot') ? 'active' : '' %>" aria-disabled="true">Chatbot</a>

@@ -1,0 +1,103 @@
+<h1>Cron jobs</h1>
+<p class="muted">
+  List of cron jobs registered via the <code>cron</code> tool. Mutating actions are
+  CSRF-gated and audit-logged.
+</p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'unreachable') return '<span class="badge warn">cron tool unreachable</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
+<div class="meta">
+  <p>
+    State: <%- stateBadge(view.state) %>
+    <% if (view.cronPath) { %>
+      · binary: <code><%= view.cronPath %></code>
+    <% } else { %>
+      · binary: <code>cron</code> (not resolved; check OPENCLAW_BIN)
+    <% } %>
+  </p>
+  <% if (view.error) { %>
+    <p class="muted"><%= view.error %></p>
+  <% } %>
+</div>
+
+<% if (view.state === 'ok' && view.jobs.length === 0) { %>
+  <div class="flash">No cron jobs registered. Use the <code>cron</code> tool to register one.</div>
+<% } else if (view.state === 'ok') { %>
+  <table class="cron">
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>name</th>
+        <th>schedule</th>
+        <th>last run</th>
+        <th>enabled</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const job of view.jobs) { %>
+        <tr>
+          <td><code><%= job.id %></code></td>
+          <td><%= job.name %></td>
+          <td><code><%= (job.schedule) ? job.schedule : '\u2014' %></code></td>
+          <td><%= (job.lastRunAt) ? job.lastRunAt : '\u2014' %></td>
+          <td>
+            <% if (job.enabled) { %>
+              <span class="badge ok">enabled</span>
+            <% } else { %>
+              <span class="badge muted">paused</span>
+            <% } %>
+          </td>
+          <td class="actions">
+            <% if (job.enabled) { %>
+              <form method="post" action="/cron/<%= encodeURIComponent(job.id) %>/pause" class="inline-form">
+                <%- include('../partials/csrf-input') %>
+                <button type="submit" class="action-btn warn">Pause</button>
+              </form>
+            <% } else { %>
+              <form method="post" action="/cron/<%= encodeURIComponent(job.id) %>/resume" class="inline-form">
+                <%- include('../partials/csrf-input') %>
+                <button type="submit" class="action-btn ok">Resume</button>
+              </form>
+            <% } %>
+            <form method="post" action="/cron/<%= encodeURIComponent(job.id) %>/run" class="inline-form">
+              <%- include('../partials/csrf-input') %>
+              <button type="submit" class="action-btn">Run now</button>
+            </form>
+            <form method="post" action="/cron/<%= encodeURIComponent(job.id) %>/remove" class="inline-form">
+              <%- include('../partials/csrf-input') %>
+              <button type="submit" class="action-btn danger"
+                onclick="return confirm('Remove cron job <%= job.id %>?');">Remove</button>
+            </form>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+<% } %>
+
+<style>
+  .meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  table.cron { border-collapse: collapse; width: 100%; }
+  table.cron th, table.cron td { border-bottom: 1px solid #e1e6e9; padding: 0.4rem 0.6rem; vertical-align: top; text-align: left; }
+  table.cron th { background: #f4f7f9; font-size: 0.85rem; }
+  table.cron td.actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .inline-form { margin: 0; }
+  .action-btn { padding: 0.2rem 0.5rem; font-size: 0.85rem; border: 1px solid #cfd8dc; background: #f4f7f9; cursor: pointer; border-radius: 3px; }
+  .action-btn.ok { border-color: #1d6f8a; color: #114b5f; }
+  .action-btn.warn { border-color: #b6791f; color: #6f4d0a; }
+  .action-btn.danger { border-color: #b04848; color: #6b1818; }
+  .muted { color: #6a7d83; font-size: 0.85rem; margin: 0.2rem 0 0.6rem 0; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+</style>
