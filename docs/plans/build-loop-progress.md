@@ -23,3 +23,9 @@
 - commit: ed70ecd
 - test result: 61/61 green (typecheck + lint + vitest, +4 from #6)
 - pm2 healthz: 200 {"ok":true}
+## issue #8: Phase 2 #7: /rag/ingest file upload + /rag/ingest/text + chunking params
+- branch: phase-2-issue-7-rag-ingest
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/22
+- commit: see PR
+- test result: 69/69 green (typecheck + lint + vitest, +8 from #7)
+- pm2 healthz: 200 {"ok":true}
