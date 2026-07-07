@@ -9,7 +9,8 @@ export type AuditAction =
   | 'session.regenerate'
   | 'session.destroy'
   | 'basic-auth.fallback'
-  | 'vault.init';
+  | 'vault.init'
+  | 'rag.ingest';
 
 export interface AuditEntry {
   ts: string;
@@ -24,6 +25,9 @@ export interface AuditEntry {
   urlHash?: string;
   outcome?: 'success' | 'failure';
   detail?: string;
+  // rag.ingest metadata.
+  source?: string;
+  chunks?: number;
 }
 
 function sanitize(input: string | undefined): string | undefined {
@@ -55,6 +59,8 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
     urlHash: sanitize(entry.urlHash),
     outcome: entry.outcome,
     detail: sanitize(entry.detail),
+    source: sanitize(entry.source),
+    chunks: typeof entry.chunks === 'number' ? entry.chunks : undefined,
   };
   const line = `${JSON.stringify(payload)}\n`;
 
