@@ -1,0 +1,82 @@
+<h1>Vault · <code><%= view.rawId %></code></h1>
+<p class="muted"><a href="/vault">← back to vault</a></p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'unconfigured') return '<span class="badge muted">unconfigured</span>';
+    if (state === 'not_found') return '<span class="badge warn">not found</span>';
+    if (state === 'unreachable') return '<span class="badge warn">vault unreachable</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
+<section>
+  <h2>Vault context (whoami)</h2>
+  <table class="meta">
+    <tr>
+      <th>State</th>
+      <td><%- stateBadge(view.whoami.state) %></td>
+    </tr>
+    <% if (view.whoami.state === 'ok') { %>
+      <tr><th>Backend</th><td><%= view.whoami.backend ?? '—' %></td></tr>
+      <tr><th>Region</th><td><%= view.whoami.region ?? '—' %></td></tr>
+      <tr><th>Project URL</th><td><%= view.whoami.projectUrl ?? '—' %></td></tr>
+      <tr><th>Anon key id</th><td><%= view.whoami.anonKeyId ?? '—' %></td></tr>
+    <% } else if (view.whoami.error) { %>
+      <tr><th>Error</th><td class="muted"><%= view.whoami.error %></td></tr>
+    <% } %>
+  </table>
+</section>
+
+<section>
+  <h2>Secret metadata</h2>
+  <% if (view.state === 'not_found') { %>
+    <div class="flash">Secret <code><%= view.rawId %></code> not found — invalid id or vault returned no match.</div>
+  <% } else if (view.state !== 'ok') { %>
+    <div class="error">
+      <%- stateBadge(view.state) %>
+      <strong>Could not fetch this secret.</strong>
+      <% if (view.error) { %> <span class="muted"><%= view.error %></span><% } %>
+    </div>
+  <% } else if (view.item) { %>
+    <table class="meta">
+      <tr><th>id</th><td><code><%= view.item.id %></code></td></tr>
+      <tr><th>name</th><td><%= view.item.name ?? '—' %></td></tr>
+      <tr><th>kind</th><td><%= view.item.kind ?? '—' %></td></tr>
+      <tr>
+        <th>tags</th>
+        <td>
+          <% if (view.item.tags && view.item.tags.length > 0) { %>
+            <% for (const tag of view.item.tags) { %><span class="tag"><%= tag %></span> <% } %>
+          <% } else { %>
+            <span class="muted">—</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr><th>mtime</th><td><%= view.item.mtime ?? '—' %></td></tr>
+      <tr><th>sha</th><td><code><%= view.item.sha ?? '—' %></code></td></tr>
+      <% if (view.item.preview) { %>
+        <tr><th>preview</th><td><code><%= view.item.preview %></code></td></tr>
+      <% } %>
+    </table>
+    <p class="muted">
+      Plaintext content is intentionally NOT shown — see Risks #1 and #4
+      in <code>docs/plans/phase-0-bootstrap.md</code>.
+    </p>
+  <% } %>
+</section>
+
+<style>
+  table.meta { border-collapse: collapse; }
+  table.meta th, table.meta td { border-bottom: 1px solid #e1e6e9; padding: 0.35rem 0.6rem; text-align: left; vertical-align: top; }
+  table.meta th { background: #f4f7f9; font-size: 0.85rem; min-width: 8rem; }
+  .tag { display: inline-block; background: #e3eff4; color: #114b5f; padding: 0 0.4rem; border-radius: 3px; font-size: 0.8rem; margin-right: 0.2rem; }
+  .muted { color: #6a7d83; font-size: 0.85rem; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+</style>

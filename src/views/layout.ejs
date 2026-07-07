@@ -37,7 +37,7 @@
     </header>
     <nav>
       <a href="/" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/') ? 'active' : '' %>">Overview</a>
-      <a href="/vault" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/vault') ? 'active' : '' %>" aria-disabled="true">Vault</a>
+      <a href="/vault" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/vault') ? 'active' : '' %>">Vault</a>
       <a href="/rag" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/rag') ? 'active' : '' %>" aria-disabled="true">RAG</a>
       <a href="/cron" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/cron') ? 'active' : '' %>" aria-disabled="true">Cron</a>
       <a href="/sessions" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/sessions') ? 'active' : '' %>" aria-disabled="true">Sessions</a>

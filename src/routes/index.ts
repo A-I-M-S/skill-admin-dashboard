@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
 import { generateCsrfToken } from '../auth/csrf';
-import { list as binSecretList, whoami, type BinSecretListItem } from '../lib/bin-secret';
+import { list as binSecretList, whoami, type BinSecretMetadataItem } from '../lib/bin-secret';
 import { cronList, sessionsList } from '../lib/openclaw-bin';
 import { sendPage } from '../lib/render';
 
@@ -16,7 +16,7 @@ export interface IndexStatusView {
   };
   recentSecrets: {
     state: 'ok' | 'unreachable' | 'invalid_json';
-    items: BinSecretListItem[];
+    items: BinSecretMetadataItem[];
     error: string | null;
   };
   cron: {
@@ -107,7 +107,7 @@ export async function buildIndexStatus(): Promise<IndexStatusView> {
 
   let recentSecrets: IndexStatusView['recentSecrets'];
   if (listResult.ok && listResult.data) {
-    const items = (listResult.data.items ?? []).slice();
+    const items: BinSecretMetadataItem[] = [...listResult.data];
     items.sort((a, b) => {
       const am = a.mtime ? Date.parse(a.mtime) : 0;
       const bm = b.mtime ? Date.parse(b.mtime) : 0;

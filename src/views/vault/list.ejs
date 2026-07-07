@@ -1,0 +1,102 @@
+<h1>Vault</h1>
+<p class="muted">Metadata only — plaintext is never rendered. Risk #1 + #4 (Q1 decision: NO reveal in v1).</p>
+
+<form method="get" action="/vault" class="search">
+  <label for="q">Search</label>
+  <input
+    type="search"
+    id="q"
+    name="q"
+    value="<%= (typeof view.query !== 'undefined' && view.query !== null) ? view.query : '' %>"
+    placeholder="id, name, kind, sha, tag"
+    autocomplete="off"
+    maxlength="128"
+  />
+  <button type="submit">Search</button>
+  <% if (typeof view.query !== 'undefined' && view.query !== '') { %>
+    <a href="/vault" class="link">clear</a>
+  <% } %>
+</form>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'unconfigured') return '<span class="badge muted">unconfigured</span>';
+    if (state === 'unreachable') return '<span class="badge warn">vault unreachable</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
+<% if (view.state !== 'ok') { %>
+  <div class="error">
+    <%- stateBadge(view.state) %>
+    <strong>Could not list secrets.</strong>
+    <% if (view.error) { %> <span class="muted"><%= view.error %></span><% } %>
+  </div>
+<% } else if (view.items.length === 0) { %>
+  <div class="flash">
+    <% if (typeof view.query !== 'undefined' && view.query !== '') { %>
+      No secrets matched <code><%= view.query %></code>.
+    <% } else { %>
+      No secrets in this vault yet. Use the <a href="/vault/init">init</a> form (issue #6) to bootstrap.
+    <% } %>
+  </div>
+<% } else { %>
+  <table class="secrets">
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>name</th>
+        <th>kind</th>
+        <th>tags</th>
+        <th>mtime</th>
+        <th>sha</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const item of view.items) { %>
+        <tr>
+          <td><a href="/vault/<%= encodeURIComponent(item.id) %>"><%= item.id %></a></td>
+          <td><%= (item.name) ? item.name : '—' %></td>
+          <td><%= (item.kind) ? item.kind : '—' %></td>
+          <td>
+            <% if (item.tags && item.tags.length > 0) { %>
+              <% for (const tag of item.tags) { %><span class="tag"><%= tag %></span> <% } %>
+            <% } else { %>
+              <span class="muted">—</span>
+            <% } %>
+          </td>
+          <td><%= (item.mtime) ? item.mtime : '—' %></td>
+          <td><code><%= (item.sha) ? item.sha.slice(0, 12) : '—' %></code></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+  <p class="muted">
+    <%= view.items.length %> secret<%= view.items.length === 1 ? '' : 's' %>
+    <% if (typeof view.query !== 'undefined' && view.query !== '') { %>
+      matching <code><%= view.query %></code>
+    <% } %>
+    · metadata only, plaintext never leaves the vault.
+  </p>
+<% } %>
+
+<style>
+  .search { margin: 0.8rem 0 1rem 0; display: flex; gap: 0.4rem; align-items: center; }
+  .search label { font-size: 0.9rem; color: #555; }
+  .search input { flex: 0 0 320px; padding: 0.3rem 0.5rem; }
+  .search .link { font-size: 0.85rem; }
+  table.secrets { border-collapse: collapse; width: 100%; }
+  table.secrets th, table.secrets td { border-bottom: 1px solid #e1e6e9; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+  table.secrets th { background: #f4f7f9; font-size: 0.85rem; }
+  table.secrets td a { color: #1d6f8a; text-decoration: none; }
+  table.secrets td a:hover { text-decoration: underline; }
+  .tag { display: inline-block; background: #e3eff4; color: #114b5f; padding: 0 0.4rem; border-radius: 3px; font-size: 0.8rem; margin-right: 0.2rem; }
+  .muted { color: #6a7d83; font-size: 0.85rem; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+</style>
