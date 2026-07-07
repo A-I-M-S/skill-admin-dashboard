@@ -53,3 +53,9 @@
 - commit: 10c9eff
 - test result: 104/104 green (typecheck + lint + vitest, +7 from #12)
 - pm2 healthz: 200 {"ok":true}
+## issue #14: Phase 4 #13: /chatbot/conversations/:phone last 50 messages
+- branch: phase-4-issue-13-chatbot-messages
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/28
+- commit: 4abcbb3
+- test result: 110/110 green (typecheck + lint + vitest, +6 from #13)
+- pm2 healthz: 200 {"ok":true}
