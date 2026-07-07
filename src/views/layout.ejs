@@ -40,9 +40,9 @@
       <a href="/vault" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/vault') ? 'active' : '' %>">Vault</a>
       <a href="/rag" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/rag') ? 'active' : '' %>">RAG</a>
       <a href="/cron" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/cron') ? 'active' : '' %>">Cron</a>
-      <a href="/sessions" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/sessions') ? 'active' : '' %>" aria-disabled="true">Sessions</a>
-      <a href="/logs" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/logs') ? 'active' : '' %>" aria-disabled="true">Logs</a>
-      <a href="/chatbot" class="disabled <%= (typeof activeNav !== 'undefined' && activeNav === '/chatbot') ? 'active' : '' %>" aria-disabled="true">Chatbot</a>
+      <a href="/sessions" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/sessions') ? 'active' : '' %>">Sessions</a>
+      <a href="/logs" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/logs') ? 'active' : '' %>">Logs</a>
+      <a href="/chatbot" class="<%= (typeof activeNav !== 'undefined' && activeNav === '/chatbot') ? 'active' : '' %>">Chatbot</a>
     </nav>
     <main>
       <% if (typeof flash !== 'undefined' && flash) { %><div class="flash"><%= flash %></div><% } %>
