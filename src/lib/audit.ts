@@ -15,7 +15,8 @@ export type AuditAction =
   | 'cron.pause'
   | 'cron.resume'
   | 'cron.run'
-  | 'cron.remove';
+  | 'cron.remove'
+  | 'chatbot.send';
 
 export interface AuditEntry {
   ts: string;
@@ -38,6 +39,9 @@ export interface AuditEntry {
   topK?: number;
   // cron.* metadata.
   jobId?: string;
+  // chatbot.send metadata. PRIVACY: only the hash, NEVER the raw phone.
+  phoneHash?: string;
+  length?: number;
 }
 
 function sanitize(input: string | undefined): string | undefined {
@@ -74,6 +78,8 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
     questionHash: sanitize(entry.questionHash),
     topK: typeof entry.topK === 'number' ? entry.topK : undefined,
     jobId: sanitize(entry.jobId),
+    phoneHash: sanitize(entry.phoneHash),
+    length: typeof entry.length === 'number' ? entry.length : undefined,
   };
   const line = `${JSON.stringify(payload)}\n`;
 

@@ -1,0 +1,93 @@
+<h1>Chatbot · Admin send</h1>
+<p class="muted">
+  Send a manual message as an <strong>admin intervention</strong>. The message is
+  flagged with <code>is_admin=true</code> in the orchestrator's <code>state_log</code> and
+  visible to the customer in the conversation history. The dashboard writes a
+  privacy-preserving audit record (phone hash, never raw phone).
+</p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'chatbot_admin_unavailable') return '<span class="badge warn">wrapper not installed</span>';
+    if (state === 'invalid_form') return '<span class="badge warn">invalid form</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    if (state === 'bridge_unreachable') return '<span class="badge warn">bridge unreachable</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
+<div class="meta">
+  <p>
+    State: <%- stateBadge(view.state) %>
+    · binary: <code><%= view.binPath %></code>
+  </p>
+</div>
+
+<% if (view.flash) { %>
+  <div class="flash"><%= view.flash %></div>
+<% } %>
+<% if (view.error) { %>
+  <div class="error"><%= view.error %></div>
+<% } %>
+
+<% if (view.state === 'chatbot_admin_unavailable') { %>
+  <div class="card warn">
+    <h3>skill-chatbot admin wrapper not installed</h3>
+    <p>The <code>bin/chatbot-admin</code> wrapper is not installed at <code><%= view.binPath %></code>.
+       This page will return 503 with <code>Retry-After: 60</code> until the wrapper ships.</p>
+  </div>
+<% } else { %>
+  <form method="post" action="/chatbot/send" class="send-form">
+    <%- include('../partials/csrf-input') %>
+
+    <label for="phone">Phone <span class="muted">(E.164-ish, e.g. +6591234567)</span></label>
+    <input type="text" id="phone" name="phone"
+           value="<%= view.phone %>"
+           pattern="^\+?\d{6,15}$"
+           required maxlength="20" autocomplete="off" />
+
+    <label for="replyTo">Reply-to message_id <span class="muted">(optional, inbound reference)</span></label>
+    <input type="text" id="replyTo" name="replyTo"
+           value="<%= view.replyTo %>"
+           maxlength="128" autocomplete="off" />
+
+    <label for="text">Message body <span class="muted">(max 4096 chars — WhatsApp outbound limit)</span></label>
+    <textarea id="text" name="text" rows="6" maxlength="4096" required><%= view.text %></textarea>
+
+    <label class="confirm">
+      <input type="checkbox" id="confirm" name="confirm" value="1" <%= view.confirm ? 'checked' : '' %> required />
+      I confirm I am sending this as an admin intervention. The customer will see this
+      message in the conversation history. The action will be audit-logged with a
+      hash of the phone (raw phone is never persisted).
+    </label>
+
+    <button type="submit">Send admin message</button>
+  </form>
+<% } %>
+
+<style>
+  .meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  form.send-form { display: flex; flex-direction: column; gap: 0.4rem; max-width: 600px; margin-top: 0.6rem; }
+  form.send-form label { font-size: 0.85rem; font-weight: 600; margin-top: 0.4rem; }
+  form.send-form input[type="text"], form.send-form textarea {
+    padding: 0.4rem 0.5rem; border: 1px solid #cfd8dc; border-radius: 3px;
+    font-family: inherit; font-size: 0.95rem;
+  }
+  form.send-form textarea { font-family: ui-monospace, monospace; }
+  form.send-form label.confirm { font-weight: normal; display: flex; gap: 0.4rem; align-items: flex-start; }
+  form.send-form label.confirm input { margin-top: 0.2rem; }
+  form.send-form button {
+    margin-top: 0.6rem; padding: 0.4rem 0.8rem; background: #114b5f; color: #fff;
+    border: none; border-radius: 3px; cursor: pointer; align-self: flex-start;
+  }
+  .muted { color: #6a7d83; font-size: 0.85rem; font-weight: normal; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+  .card.warn { background: #fff3cd; border: 1px solid #ffeeba; padding: 0.8rem 1rem; border-radius: 4px; margin: 0.6rem 0; }
+  .card.warn h3 { margin: 0 0 0.4rem 0; font-size: 1rem; }
+  .card.warn p { margin: 0.2rem 0; }
+</style>

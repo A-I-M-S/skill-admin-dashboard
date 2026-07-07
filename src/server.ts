@@ -20,6 +20,8 @@ import { registerSessionsRoute } from './routes/ops/sessions';
 import { registerLogsRoute } from './routes/ops/logs';
 import { registerChatbotIndexRoute } from './routes/chatbot/index';
 import { registerConversationsRoute } from './routes/chatbot/conversations';
+import { registerHandoffRoute } from './routes/chatbot/handoff';
+import { registerSendRoute } from './routes/chatbot/send';
 import type { CsrfToken } from './types';
 
 declare module 'fastify' {
@@ -99,6 +101,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerLogsRoute(app);
   await registerChatbotIndexRoute(app);
   await registerConversationsRoute(app);
+  await registerHandoffRoute(app);
+  await registerSendRoute(app);
 
   return app;
 }
