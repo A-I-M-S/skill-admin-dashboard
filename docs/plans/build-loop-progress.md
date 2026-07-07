@@ -41,3 +41,9 @@
 - commit: 64db026
 - test result: 90/90 green (typecheck + lint + vitest, +5 from #10)
 - pm2 healthz: 200 {"ok":true}
+## issue #12: Phase 3 #11: /logs tail 4 services in tabs
+- branch: phase-3-issue-11-logs-tail
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/26
+- commit: 0d3caa8
+- test result: 97/97 green (typecheck + lint + vitest, +7 from #11)
+- pm2 healthz: 200 {"ok":true}
