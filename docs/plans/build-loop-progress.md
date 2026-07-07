@@ -29,3 +29,9 @@
 - commit: see PR
 - test result: 69/69 green (typecheck + lint + vitest, +8 from #7)
 - pm2 healthz: 200 {"ok":true}
+## issue #9: Phase 2 #8: /rag/search admin-only rag.ask() + top-3 hits + scores
+- branch: phase-2-issue-8-rag-search
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/23
+- commit: see PR
+- test result: 75/75 green (typecheck + lint + vitest, +6 from #8)
+- pm2 healthz: 200 {"ok":true}
