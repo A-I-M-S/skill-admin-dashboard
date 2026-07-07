@@ -95,6 +95,14 @@ export const SKILL_SECRET_BIN = readStringEnv(
   SKILL_SECRET_BIN_FALLBACK,
 );
 
+// Path to the bin/rag wrapper script (skill-rag-qdrant). Defaults to the
+// dashboard's own bin/rag Python shim which delegates to the sibling project.
+const SKILL_RAG_BIN_FALLBACK = join(process.cwd(), 'bin', 'rag');
+export const SKILL_RAG_BIN = readStringEnv(
+  process.env.SKILL_RAG_BIN,
+  SKILL_RAG_BIN_FALLBACK,
+);
+
 // Tool path resolution for cron / sessions_list / opencode.
 export const OPENCLAW_BIN = readStringEnv(process.env.OPENCLAW_BIN, '/usr/local/bin:/usr/bin');
 
@@ -132,6 +140,9 @@ export const config: AppConfig = {
     kmsApiBlob: SKILL_SECRET_KMS_API_BLOB,
     passphrase: SKILL_SECRET_PASSPHRASE,
     binPath: SKILL_SECRET_BIN,
+  },
+  skillRag: {
+    binPath: SKILL_RAG_BIN,
   },
   auth: {
     adminUser: ADMIN_USER,

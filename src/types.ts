@@ -6,6 +6,10 @@ export interface SkillSecretConfig {
   binPath: string;
 }
 
+export interface SkillRagConfig {
+  binPath: string;
+}
+
 export interface AuthConfig {
   adminUser: string;
   sessionSecret: string;
@@ -26,6 +30,7 @@ export interface AppConfig {
   localTokenHeader: 'x-local-token';
   uiTimezone: string;
   skillSecret: SkillSecretConfig;
+  skillRag: SkillRagConfig;
   auth: AuthConfig;
   openclawBin: string;
   nodeEnv: string;

@@ -1,0 +1,94 @@
+<h1>RAG (skill-rag-qdrant)</h1>
+<p class="muted">Collection metadata only — file content is never rendered. See Risks #5 + #14.</p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'rag_unavailable') return '<span class="badge warn">RAG unavailable</span>';
+    if (state === 'unreachable') return '<span class="badge warn">unreachable</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+  function fmtNum(n) {
+    if (typeof n !== 'number' || !Number.isFinite(n)) return '\u2014';
+    return n.toLocaleString();
+  }
+  function fmtBytes(b) {
+    if (typeof b !== 'number' || b < 0) return '\u2014';
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KiB';
+    if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MiB';
+    return (b / 1024 / 1024 / 1024).toFixed(2) + ' GiB';
+  }
+%>
+
+<% if (view.state === 'rag_unavailable' || view.state === 'unreachable') { %>
+  <div class="flash">
+    <%- stateBadge(view.state) %>
+    The <code>skill-rag-qdrant</code> sibling project isn't installed at
+    <code>SKILL_RAG_QDRANT_DIR</code>. This is a soft-dependency (Risk #5):
+    the dashboard stays up and serves other routes; only the RAG section is
+    unavailable. See <code>references/upstream/rag-qdrant-README.md</code>
+    for installation instructions.
+  </div>
+<% } else if (view.state === 'invalid_json' || view.state === 'spawn_failed') { %>
+  <div class="error">
+    <%- stateBadge(view.state) %>
+    <strong>bin/rag failed.</strong>
+    <% if (view.error) { %> <span class="muted"><%= view.error %></span><% } %>
+  </div>
+<% } %>
+
+<% if (view.state === 'ok') { %>
+  <section>
+    <h2>Collection</h2>
+    <table class="meta">
+      <tr><th>Status</th><td><%- stateBadge(view.state) %></td></tr>
+      <tr><th>Collection name</th><td><%= view.stats.collection ?? '\u2014' %></td></tr>
+      <tr><th>Points</th><td><%= fmtNum(view.stats.points ?? view.stats.vector_count ?? NaN) %></td></tr>
+      <tr><th>Vector dimensions</th><td><%= fmtNum(view.stats.dims ?? NaN) %></td></tr>
+      <tr><th>Last ingest at</th><td><%= view.stats.last_ingest_at ?? '\u2014' %></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Source files</h2>
+    <% if (view.sources.length === 0) { %>
+      <div class="flash">No source files ingested yet. Use <a href="/rag/ingest">/rag/ingest</a> (issue #8).</div>
+    <% } else { %>
+      <table class="sources">
+        <thead>
+          <tr><th>filename</th><th>size</th><th>ingested at</th></tr>
+        </thead>
+        <tbody>
+          <% for (const s of view.sources) { %>
+            <tr>
+              <td><code><%= s.filename %></code></td>
+              <td><%= fmtBytes(s.size) %></td>
+              <td><%= s.ingested_at ?? '\u2014' %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+      <p class="muted">
+        <%= view.sources.length %> source<%= view.sources.length === 1 ? '' : 's' %>.
+        Chunk text is intentionally NOT rendered (Risk #5).
+      </p>
+    <% } %>
+  </section>
+<% } %>
+
+<style>
+  table.meta, table.sources { border-collapse: collapse; }
+  table.meta th, table.meta td, table.sources th, table.sources td {
+    border-bottom: 1px solid #e1e6e9; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top;
+  }
+  table.meta th, table.sources th { background: #f4f7f9; font-size: 0.85rem; }
+  .muted { color: #6a7d83; font-size: 0.85rem; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+  section { margin-top: 1.2rem; }
+</style>
