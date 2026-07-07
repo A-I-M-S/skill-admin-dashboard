@@ -47,3 +47,9 @@
 - commit: 0d3caa8
 - test result: 97/97 green (typecheck + lint + vitest, +7 from #11)
 - pm2 healthz: 200 {"ok":true}
+## issue #13: Phase 4 #12: /chatbot/conversations active list + phone filter
+- branch: phase-4-issue-12-chatbot-conversations
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/27
+- commit: 10c9eff
+- test result: 104/104 green (typecheck + lint + vitest, +7 from #12)
+- pm2 healthz: 200 {"ok":true}
