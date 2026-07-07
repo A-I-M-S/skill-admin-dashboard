@@ -293,3 +293,50 @@ export async function get(
     data: projected,
   };
 }
+
+export interface InitOptions {
+  url: string;
+  /** Path on disk to a file containing the API key (mode 0o600). */
+  apiKeyFilePath: string;
+  /** Override pass-phrase forwarded to `bin/secret init --password`. Optional. */
+  passphrase?: string;
+  /** Caller-injected env (e.g. SKILL_SECRET_PASSPHRASE). */
+  envOverrides?: NodeJS.ProcessEnv;
+  timeoutMs?: number;
+}
+
+/**
+ * Invoke `bin/secret init --url <url> --api-key-file <path>` to (re)initialise
+ * the Supabase KMS database. The caller is responsible for placing the API
+ * key on disk (mode 0o600) and deleting it after the call returns.
+ *
+ * The wrapper NEVER accepts plaintext via env / args from a request body — it
+ * only references the file path (Risk #4). The actual API key bytes stay on
+ * disk just long enough for `bin/secret` to slurp them.
+ *
+ * Password is read from the dashboard's own env (via `envOverrides` /
+ * `process.env`) — typically `SKILL_SECRET_PASSPHRASE` from systemd /
+ * `.env`, NEVER the request body.
+ */
+export async function init(
+  options: InitOptions,
+): Promise<BinSecretCallResult<{ url: string }>> {
+  const args = ['init', '--url', options.url, '--api-key-file', options.apiKeyFilePath];
+  if (options.passphrase) {
+    args.push('--password', options.passphrase);
+  }
+  const callOptions: BinSecretCallOptions = {
+    timeoutMs: options.timeoutMs ?? 30_000,
+    envOverrides: options.envOverrides,
+  };
+  const result = await callBinSecret<{ url?: string }>(args, callOptions);
+  if (!result.ok || result.data === null) {
+    return { ...result, data: null };
+  }
+  return {
+    ok: true,
+    reason: 'ok',
+    raw: result.raw,
+    data: { url: result.data.url ?? options.url },
+  };
+}
