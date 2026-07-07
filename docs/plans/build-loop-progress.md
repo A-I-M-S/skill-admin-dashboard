@@ -35,3 +35,9 @@
 - commit: see PR
 - test result: 75/75 green (typecheck + lint + vitest, +6 from #8)
 - pm2 healthz: 200 {"ok":true}
+## issue #11: Phase 3 #10: /sessions list + last message + deep link to session JSONL
+- branch: phase-3-issue-10-sessions-list
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/25
+- commit: 64db026
+- test result: 90/90 green (typecheck + lint + vitest, +5 from #10)
+- pm2 healthz: 200 {"ok":true}
