@@ -354,7 +354,7 @@ describe('/ status dashboard + bin/secret subprocess wrapper (Issue #4)', () => 
       expect(result.data).toEqual({ backend: 'supabase', anon_key_id: 'eyJabcde…' });
     });
 
-    it('list returns structured items', async () => {
+    it('list returns projected metadata items (no .items wrapper)', async () => {
       mock.setDefault((call) => {
         if (call.command.endsWith('bin/secret') && call.args[0] === 'list') {
           return {
@@ -369,8 +369,9 @@ describe('/ status dashboard + bin/secret subprocess wrapper (Issue #4)', () => 
       const { list } = await import('../src/lib/bin-secret');
       const result = await list();
       expect(result.ok).toBe(true);
-      expect(result.data?.items).toHaveLength(1);
-      expect(result.data?.items[0]?.id).toBe('x');
+      expect(result.data).toHaveLength(1);
+      expect(result.data?.[0]?.id).toBe('x');
+      expect(result.data?.[0]?.mtime).toBe('2026-07-06T00:00:00Z');
     });
 
     it('non-zero exit + empty stdout returns vault_unreachable (no throw, no 500)', async () => {
@@ -380,6 +381,204 @@ describe('/ status dashboard + bin/secret subprocess wrapper (Issue #4)', () => 
       expect(result.ok).toBe(false);
       expect(result.reason).toBe('vault_unreachable');
       expect(result.data).toBeNull();
+    });
+  });
+
+  describe('/vault list + search (Issue #5)', () => {
+    /**
+     * Helper: log in once and grab the cookie jar + csrf token for a follow-up
+     * GET /vault. Most /vault tests are read-only and don't need CSRF.
+     */
+    async function login(): Promise<string> {
+      const loginRes = await loginAndGetCookies(app, 'admin', 'correct-horse-battery-staple');
+      return setCookieFromResponse(loginRes);
+    }
+
+    it('redirects unauthenticated GET /vault to /login', async () => {
+      const res = await request(app.server).get('/vault').redirects(0);
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe('/login');
+    });
+
+    it('renders a table of secrets for an authenticated user', async () => {
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'list',
+        () => ({
+          code: 0,
+          stdout: JSON.stringify({
+            items: [
+              { id: 'alpha', name: 'Alpha note', mtime: '2026-07-05T00:00:00Z', kind: 'note', tags: ['rotating'] },
+              { id: 'beta', name: 'Beta note', mtime: '2026-07-06T00:00:00Z', kind: 'note' },
+            ],
+          }),
+        }),
+      );
+      const cookie = await login();
+      const res = await request(app.server).get('/vault').set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('alpha');
+      expect(res.text).toContain('beta');
+      expect(res.text).toContain('<table');
+      expect(res.text).toContain('/vault/alpha');
+    });
+
+    it('filters by ?q= against id, name, kind, sha, tags (case-insensitive substring)', async () => {
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'list',
+        () => ({
+          code: 0,
+          stdout: JSON.stringify({
+            items: [
+              { id: 'alpha-secret', name: 'Production DB', kind: 'note', tags: ['db', 'prod'] },
+              { id: 'beta-secret', name: 'Sandbox', kind: 'note' },
+              { id: 'gamma-token', name: 'CI token', kind: 'token', sha: 'deadbeefcafe' },
+            ],
+          }),
+        }),
+      );
+      const cookie = await login();
+      const resById = await request(app.server).get('/vault').query({ q: 'ALPHA' }).set('Cookie', cookie);
+      expect(resById.text).toContain('alpha-secret');
+      expect(resById.text).not.toContain('beta-secret');
+      expect(resById.text).not.toContain('gamma-token');
+
+      const resByTag = await request(app.server).get('/vault').query({ q: 'prod' }).set('Cookie', cookie);
+      expect(resByTag.text).toContain('alpha-secret');
+      expect(resByTag.text).not.toContain('beta-secret');
+
+      const resBySha = await request(app.server).get('/vault').query({ q: 'CAFE' }).set('Cookie', cookie);
+      expect(resBySha.text).toContain('gamma-token');
+      expect(resBySha.text).not.toContain('alpha-secret');
+    });
+
+    it('NEVER exposes plaintext content in the /vault response body (fuzz)', async () => {
+      const PLAINTEXTS = [
+        'hunter2-supersecret-password',
+        'sk-test-1234567890abcdef-fed-cannot-leak',
+        '\u{1F47B}ghost-marker-emoji',
+        '<script>alert(1)</script>',
+        'AKIA9999999999999999',
+        'sqlite3-url-with-creds',
+      ];
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'list',
+        () => ({
+          code: 0,
+          // Worst-case upstream response: includes plaintext `content` /
+          // `plaintext` / `secret` fields that MUST be stripped.
+          stdout: JSON.stringify({
+            items: PLAINTEXTS.map((value, i) => ({
+              id: `n${i}`,
+              content: value,
+              plaintext: value,
+              secret: value,
+              value,
+              body: value,
+              mtime: '2026-07-06T00:00:00Z',
+              kind: 'note',
+            })),
+          }),
+        }),
+      );
+      const cookie = await login();
+      const res = await request(app.server).get('/vault').set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      for (const value of PLAINTEXTS) {
+        expect(res.text).not.toContain(value);
+      }
+    });
+
+    it('NEVER exposes plaintext in GET /vault/:id either (fuzz)', async () => {
+      const PLAINTEXTS = [
+        'top-secret-content-xyz',
+        '\n<script>steal()</script>',
+        'BEGIN PRIVATE KEY abcdef',
+      ];
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'get' && call.args[1] === 'alpha',
+        () => ({
+          code: 0,
+          stdout: JSON.stringify({
+            id: 'alpha',
+            name: 'Alpha',
+            content: PLAINTEXTS[0],
+            plaintext: PLAINTEXTS[1],
+            secret: PLAINTEXTS[2],
+            value: PLAINTEXTS[0],
+            mtime: '2026-07-06T00:00:00Z',
+          }),
+        }),
+      );
+      const cookie = await login();
+      const res = await request(app.server).get('/vault/alpha').set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('alpha');
+      for (const value of PLAINTEXTS) {
+        expect(res.text).not.toContain(value);
+      }
+    });
+
+    it('GET /vault/:id rejects ids containing shell metacharacters', async () => {
+      const cookie = await login();
+      // /vault/:id matches a single segment; URLs with embedded '/' go to a
+      // different route and return 404 from Fastify's matcher (separate case).
+      // For this test we restrict to single-segment paths that decoders are
+      // allowed to send but our validator rejects.
+      const cases = [
+        '/vault/%20', // whitespace-only id
+        // (Fastify's default maxParamLength is 100, so we can't test a
+        // 128-char-overflow at the URL layer without bumping it server-side;
+        // the validator's length check is unit-tested separately.)
+        '/vault/dollar$sign', // $ rejected by [A-Za-z0-9._-]
+        '/vault/abc`rm', // backtick rejected (shell metachar; supertest
+        //   forwards it through to Fastify's path parser).
+        '/vault/bang!hash', // ! rejected
+      ];
+      for (const path of cases) {
+        const res = await request(app.server).get(path).set('Cookie', cookie);
+        expect(res.status).toBe(200);
+        // Either "not found" (id failed validation) or "invalid" id.
+        expect(res.text).toMatch(/not found|invalid id/);
+      }
+    });
+
+    it('GET /vault/:id surfaces "vault unreachable" not 500 when bin/secret fails', async () => {
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'get',
+        () => ({ code: 7, stdout: '', stderr: 'ERROR: not initialised' }),
+      );
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'whoami',
+        () => ({ code: 0, stdout: '{"backend":"supabase","region":"ap-southeast-1"}' }),
+      );
+      const cookie = await login();
+      const res = await request(app.server).get('/vault/alpha').set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      // Should NOT 500; should render the "vault unreachable" badge.
+      expect(res.text).toContain('vault unreachable');
+      expect(res.text).toContain('Could not fetch this secret');
+    });
+
+    it('GET /vault itself surfaces "vault unreachable" not 500 when bin/secret list fails', async () => {
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'list',
+        () => ({ code: 9, stdout: '', stderr: 'ERROR: vault unreachable' }),
+      );
+      const cookie = await login();
+      const res = await request(app.server).get('/vault').set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('vault unreachable');
+    });
+
+    it('GET /vault shows empty-state hint when list returns []', async () => {
+      mock.whenMatch(
+        (call) => call.command.endsWith('bin/secret') && call.args[0] === 'list',
+        () => ({ code: 0, stdout: JSON.stringify({ items: [] }) }),
+      );
+      const cookie = await login();
+      const res = await request(app.server).get('/vault').set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('No secrets');
     });
   });
 });

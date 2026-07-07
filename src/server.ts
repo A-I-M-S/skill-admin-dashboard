@@ -8,6 +8,8 @@ import { requireAuthForPages } from './lib/render';
 import { registerIndexRoute } from './routes/index';
 import { registerLoginRoutes } from './routes/login';
 import { registerLogoutRoutes } from './routes/logout';
+import { registerVaultListRoute } from './routes/vault/list';
+import { registerVaultShowRoute } from './routes/vault/show';
 import type { CsrfToken } from './types';
 
 declare module 'fastify' {
@@ -69,6 +71,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerIndexRoute(app);
   await registerLoginRoutes(app);
   await registerLogoutRoutes(app);
+  await registerVaultListRoute(app);
+  await registerVaultShowRoute(app);
 
   return app;
 }
