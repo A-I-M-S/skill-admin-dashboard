@@ -59,3 +59,10 @@
 - commit: 4abcbb3
 - test result: 110/110 green (typecheck + lint + vitest, +6 from #13)
 - pm2 healthz: 200 {"ok":true}
+## issue #15: Phase 4 #14: /chatbot/handoff queue + /chatbot/send admin manual send + audit
+- branch: phase-4-issue-14-chatbot-handoff-send
+- PR: https://github.com/A-I-M-S/skill-admin-dashboard/pull/29
+- commit: b9b926d
+- test result: 125/125 green (typecheck + lint + vitest, +15 from #14)
+- pm2 healthz: 200 {"ok":true}
+- smoke check: all 4 chatbot routes return 503 + Retry-After when wrapper missing (correct)
