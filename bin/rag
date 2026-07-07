@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""
+bin/rag — thin CLI shim for the skill-rag-qdrant dashboard contract.
+
+The dashboard never imports `rag_qdrant` directly (the dashboard is a Node
+service); it spawns this wrapper. This script:
+
+  1. Resolves the sibling project root via $SKILL_RAG_QDRANT_DIR
+     (default: /root/.openclaw/workspace/dev/projects/skill-rag-qdrant).
+  2. Prepends that path to PYTHONPATH.
+  3. Tries to `import rag_qdrant`. If that fails (module not installed,
+     sibling repo absent, virtualenv missing, qdrant-client not present,
+     etc.) the wrapper prints `{}` to stderr and exits **7** with empty
+     stdout. The dashboard translates that into `rag_unavailable` (Risk #5).
+  4. Otherwise dispatches the subcommand:
+        stats / list-sources / ingest-file / ingest-text / search / ask
+
+Outputs JSON on stdout. ALWAYS exits 0 on success; non-zero on failure
+with empty stdout (so the dashboard can pattern-match "non_zero + empty
+stdout ⇒ rag unavailable").
+
+Env forwarding (Risk #4): the dashboard passes its own env to the wrapper
+via `bin-secret.ts` style inheritance. We never read secrets from a
+request body. Specifically: QDRANT_URL, QDRANT_API_KEY, INFERENCE_BASE_URL,
+INFERENCE_API_KEY, INFERENCE_MODEL, RAG_PHOTOS_DIR are inherited from the
+dashboard's environment.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import traceback
+from typing import Any, Callable, Dict, List
+
+DEFAULT_SIBLING = "/root/.openclaw/workspace/dev/projects/skill-rag-qdrant"
+
+
+def _resolve_sibling() -> str:
+    env = (os.environ.get("SKILL_RAG_QDRANT_DIR") or "").strip()
+    return env or DEFAULT_SIBLING
+
+
+def _bootstrap_sibling() -> str | None:
+    """Add the sibling project to sys.path. Returns the path on success."""
+    sibling = _resolve_sibling()
+    if not os.path.isdir(sibling):
+        return None
+    sys.path.insert(0, sibling)
+    return sibling
+
+
+def _emit_unavailable(reason: str) -> int:
+    """Non-zero exit with empty stdout so the dashboard sees rag_unavailable."""
+    sys.stderr.write(f"rag_unavailable: {reason}\n")
+    return 7
+
+
+def _emit_failure(reason: str, code: int) -> int:
+    sys.stderr.write(f"rag_failure({code}): {reason}\n")
+    return code
+
+
+def _json_out(data: Any) -> int:
+    sys.stdout.write(json.dumps(data, sort_keys=True))
+    sys.stdout.write("\n")
+    return 0
+
+
+def _stats(rag: Any) -> int:
+    """Return collection stats: {points, vector_count, dims, last_ingest_at}."""
+    try:
+        stats_fn: Callable[[], Any] = rag.stats
+        out = stats_fn()
+        if not isinstance(out, dict):
+            return _emit_failure("stats() did not return a dict", 11)
+        return _json_out(out)
+    except Exception as exc:  # noqa: BLE001
+        return _emit_failure(f"stats exception: {exc}", 12)
+
+
+def _list_sources(rag: Any) -> int:
+    """Return list of {filename, size_bytes, ingested_at} entries."""
+    try:
+        # Sibling exposes rag.list_sources() as a flat function; if it's
+        # missing, try rag.RAG().list_sources().
+        if hasattr(rag, "list_sources"):
+            out = rag.list_sources()
+        else:
+            cls = rag.RAG
+            out = cls().list_sources()
+        if not isinstance(out, list):
+            return _emit_failure("list_sources() did not return a list", 13)
+        projected: List[Dict[str, Any]] = []
+        for item in out:
+            if isinstance(item, dict):
+                projected.append({
+                    "filename": item.get("filename") or item.get("source") or "",
+                    "size": item.get("size") or item.get("size_bytes") or 0,
+                    "ingested_at": item.get("ingested_at") or item.get("mtime") or None,
+                })
+        return _json_out(projected)
+    except Exception as exc:  # noqa: BLE001
+        return _emit_failure(f"list_sources exception: {exc}", 14)
+
+
+def _dispatch(cmd: str, rag: Any) -> int:
+    if cmd == "stats":
+        return _stats(rag)
+    if cmd == "list-sources":
+        return _list_sources(rag)
+    sys.stderr.write(f"unknown subcommand: {cmd}\n")
+    return 2
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        sys.stdout.write(
+            "usage: rag {stats|list-sources|ingest-file|ingest-text|search|ask}\n"
+        )
+        return 0
+    cmd = args[0]
+
+    sibling = _bootstrap_sibling()
+    if sibling is None:
+        return _emit_unavailable(
+            f"sibling project not found at {_resolve_sibling()}"
+        )
+
+    try:
+        import rag_qdrant  # noqa: WPS433 — intentional lazy import
+    except Exception as exc:  # noqa: BLE001
+        return _emit_unavailable(f"import rag_qdrant failed: {exc}")
+
+    try:
+        return _dispatch(cmd, rag_qdrant)
+    except Exception as exc:  # noqa: BLE001
+        traceback.print_exc(file=sys.stderr)
+        return _emit_failure(f"unhandled exception: {exc}", 99)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
