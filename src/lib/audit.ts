@@ -11,7 +11,11 @@ export type AuditAction =
   | 'basic-auth.fallback'
   | 'vault.init'
   | 'rag.ingest'
-  | 'rag.search';
+  | 'rag.search'
+  | 'cron.pause'
+  | 'cron.resume'
+  | 'cron.run'
+  | 'cron.remove';
 
 export interface AuditEntry {
   ts: string;
@@ -32,6 +36,8 @@ export interface AuditEntry {
   // rag.search metadata. PRIVACY: only the hash, NEVER the question text.
   questionHash?: string;
   topK?: number;
+  // cron.* metadata.
+  jobId?: string;
 }
 
 function sanitize(input: string | undefined): string | undefined {
@@ -67,6 +73,7 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
     chunks: typeof entry.chunks === 'number' ? entry.chunks : undefined,
     questionHash: sanitize(entry.questionHash),
     topK: typeof entry.topK === 'number' ? entry.topK : undefined,
+    jobId: sanitize(entry.jobId),
   };
   const line = `${JSON.stringify(payload)}\n`;
 

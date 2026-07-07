@@ -139,6 +139,38 @@ export async function cronList(
   return callOpenclawTool<CronListResponse>('cron', ['list', '--json'], options);
 }
 
+export type CronAction = 'pause' | 'resume' | 'run' | 'remove';
+
+/**
+ * JSON-decoder for a single cron action's stdout. The upstream cron tool
+ * returns `{ ok: true, job_id, action }` on success and `{ ok: false,
+ * reason }` on failure. We tolerate either.
+ */
+export interface CronActionResult {
+  ok: boolean;
+  job_id?: string;
+  action?: CronAction;
+  reason?: string;
+}
+
+/**
+ * Run a cron mutating action: `pause`, `resume`, `run`, or `remove`.
+ *
+ * The cron CLI is expected to accept `<action> <job-id>` and emit JSON.
+ * `--json` is requested so the dashboard can parse structured responses
+ * rather than scraping stderr.
+ *
+ * Risk #11: the binary path is resolved via `OPENCLAW_BIN` so the
+ * dashboard can be air-gapped by pointing at a fixture / `cron-mock`.
+ */
+export async function cronAction(
+  action: CronAction,
+  jobId: string,
+  options: OpenClawCallOptions = {},
+): Promise<OpenClawCallResult<CronActionResult>> {
+  return callOpenclawTool<CronActionResult>('cron', [action, jobId, '--json'], options);
+}
+
 export interface SessionsListItem {
   key?: string;
   id?: string;
