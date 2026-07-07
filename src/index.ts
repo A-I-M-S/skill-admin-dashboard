@@ -19,7 +19,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  // eslint-disable-next-line no-console
-  console.error('[skill-admin-dashboard] fatal startup error', err);
+  process.stderr.write(`[skill-admin-dashboard] fatal startup error: ${String(err)}\n`);
   process.exit(1);
 });

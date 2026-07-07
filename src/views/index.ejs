@@ -1,19 +1,110 @@
 <h1>Overview</h1>
-<p>Welcome, <strong><%= (typeof user !== 'undefined' && user && user.userId) ? user.userId : 'anonymous' %></strong>. v1 dashboard shell — feature surfaces are stubbed.</p>
+<p>Welcome, <strong><%= (typeof user !== 'undefined' && user && user.userId) ? user.userId : 'anonymous' %></strong>.</p>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'unconfigured') return '<span class="badge muted">unconfigured</span>';
+    if (state === 'unreachable') return '<span class="badge warn">unreachable</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+%>
+
 <section>
-  <h2>Status</h2>
-  <ul>
-    <li>Vault backend: <em>unconfigured</em></li>
-    <li>RAG backend: <em>unconfigured</em></li>
-    <li>Cron jobs: <em>0</em></li>
-    <li>Active agent sessions: <em>0</em></li>
-  </ul>
+  <h2>Vault (skill-secret)</h2>
+  <table class="status">
+    <tr>
+      <th>Backend</th>
+      <td>
+        <%- stateBadge(status.vault.state) %>
+        <strong><%= (status.vault.backend) ? status.vault.backend : 'unconfigured' %></strong>
+      </td>
+    </tr>
+    <% if (status.vault.state === 'ok') { %>
+      <tr>
+        <th>Project URL</th>
+        <td><%= (status.vault.projectUrl) ? status.vault.projectUrl : '—' %></td>
+      </tr>
+      <tr>
+        <th>Anon key id</th>
+        <td><code><%= (status.vault.anonKeyId) ? status.vault.anonKeyId : '—' %></code></td>
+      </tr>
+      <tr>
+        <th>Region</th>
+        <td><%= (status.vault.region) ? status.vault.region : '—' %></td>
+      </tr>
+    <% } else if (status.vault.state === 'unconfigured') { %>
+      <tr><td colspan="2">Set <code>SKILL_SECRET_KMS_BACKEND</code> + <code>SKILL_SECRET_KMS_PROJECT_URL</code> + <code>SKILL_SECRET_KMS_API_BLOB</code> in <code>.env</code> to enable.</td></tr>
+    <% } else { %>
+      <tr><td colspan="2"><em><%= status.vault.error ? status.vault.error : 'vault unreachable' %></em></td></tr>
+    <% } %>
+  </table>
 </section>
+
+<section>
+  <h2>Recent secrets (last 5 by mtime)</h2>
+  <% if (status.recentSecrets.state === 'ok') { %>
+    <% if (status.recentSecrets.items.length === 0) { %>
+      <p><em>No secrets yet. Run <code>bin/secret take</code> to add the first one.</em></p>
+    <% } else { %>
+      <table class="status">
+        <thead><tr><th>id</th><th>mtime</th><th>kind</th><th>preview</th></tr></thead>
+        <tbody>
+          <% for (const item of status.recentSecrets.items) { %>
+            <tr>
+              <td><code><%= item.id %></code></td>
+              <td><%= item.mtime ? item.mtime : '—' %></td>
+              <td><%= item.kind ? item.kind : '—' %></td>
+              <td><%= item.preview ? item.preview : '—' %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    <% } %>
+  <% } else { %>
+    <p><em>vault unreachable<%= status.recentSecrets.error ? ': ' + status.recentSecrets.error : '' %></em></p>
+  <% } %>
+</section>
+
+<section>
+  <h2>Ops</h2>
+  <table class="status">
+    <tr>
+      <th>Cron jobs</th>
+      <td>
+        <%- stateBadge(status.cron.state) %>
+        <strong><%= status.cron.count %></strong>
+        <% if (status.cron.error) { %> <em>(<%= status.cron.error %>)</em><% } %>
+      </td>
+    </tr>
+    <tr>
+      <th>Active agent sessions</th>
+      <td>
+        <%- stateBadge(status.agents.state) %>
+        <strong><%= status.agents.count %></strong>
+        <% if (status.agents.error) { %> <em>(<%= status.agents.error %>)</em><% } %>
+      </td>
+    </tr>
+  </table>
+</section>
+
 <section>
   <h2>Safety</h2>
   <ul>
     <li>READONLY_MODE: <strong><%= (typeof readonlyMode !== 'undefined' && readonlyMode) ? 'on' : 'off' %></strong></li>
     <li>APPROVAL_ACTIONS_ENABLED: <strong><%= (typeof approvalActionsEnabled !== 'undefined' && approvalActionsEnabled) ? 'on' : 'off' %></strong></li>
     <li>IMPORT_MUTATION_ENABLED: <strong><%= (typeof importMutationEnabled !== 'undefined' && importMutationEnabled) ? 'on' : 'off' %></strong></li>
+    <li>bin/secret path: <code><%= status.binSecretPath %></code></li>
   </ul>
 </section>
+
+<style>
+  .status { border-collapse: collapse; width: 100%; max-width: 800px; }
+  .status th, .status td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .status th { width: 11rem; color: #555; font-weight: 600; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; margin-right: 0.3rem; border: 1px solid transparent; }
+  .badge.ok { color: #1b5e20; background: #e8f5e9; border-color: #c8e6c9; }
+  .badge.warn { color: #b26a00; background: #fff3e0; border-color: #ffe0b2; }
+  .badge.muted { color: #555; background: #eceff1; border-color: #cfd8dc; }
+</style>

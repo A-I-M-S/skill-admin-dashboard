@@ -3,6 +3,7 @@ export interface SkillSecretConfig {
   kmsProjectUrl: string | undefined;
   kmsApiBlob: string | undefined;
   passphrase: string | undefined;
+  binPath: string;
 }
 
 export interface AuthConfig {
