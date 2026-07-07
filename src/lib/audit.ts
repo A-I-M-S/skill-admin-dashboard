@@ -10,7 +10,8 @@ export type AuditAction =
   | 'session.destroy'
   | 'basic-auth.fallback'
   | 'vault.init'
-  | 'rag.ingest';
+  | 'rag.ingest'
+  | 'rag.search';
 
 export interface AuditEntry {
   ts: string;
@@ -28,6 +29,9 @@ export interface AuditEntry {
   // rag.ingest metadata.
   source?: string;
   chunks?: number;
+  // rag.search metadata. PRIVACY: only the hash, NEVER the question text.
+  questionHash?: string;
+  topK?: number;
 }
 
 function sanitize(input: string | undefined): string | undefined {
@@ -61,6 +65,8 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
     detail: sanitize(entry.detail),
     source: sanitize(entry.source),
     chunks: typeof entry.chunks === 'number' ? entry.chunks : undefined,
+    questionHash: sanitize(entry.questionHash),
+    topK: typeof entry.topK === 'number' ? entry.topK : undefined,
   };
   const line = `${JSON.stringify(payload)}\n`;
 

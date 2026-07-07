@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { createHash } from 'node:crypto';
 import { runSubprocess, SpawnError, type SpawnResult } from './subprocess';
 
 /**
@@ -333,5 +334,80 @@ export async function ingestText(
     reason: 'ok',
     raw: result.raw,
     data: buildIngestResult(result.data, options.source ?? ''),
+  };
+}
+
+export interface RagAskHit {
+  score: number;
+  text: string;
+  source: string | null;
+  chunk_index: number | null;
+}
+
+export interface RagAskResult {
+  questionHash: string;
+  topK: number;
+  answer: string | null;
+  hits: RagAskHit[];
+}
+
+/**
+ * Coerce one upstream hit into the allow-listed shape. We deliberately
+ * accept ONLY score / text / source / chunk_index. Anything else
+ * (payload, raw Vector, custom objects, etc.) is dropped.
+ */
+function coerceHit(value: unknown): RagAskHit | null {
+  if (!value || typeof value !== 'object') return null;
+  const it = value as Record<string, unknown>;
+  const score = typeof it['score'] === 'number' ? (it['score'] as number) : NaN;
+  if (!Number.isFinite(score)) return null;
+  const text = typeof it['text'] === 'string' ? (it['text'] as string) : '';
+  const source = typeof it['source'] === 'string' ? (it['source'] as string) : null;
+  const chunkIdxRaw = it['chunk_index'];
+  const chunk_index =
+    typeof chunkIdxRaw === 'number' && Number.isFinite(chunkIdxRaw)
+      ? (chunkIdxRaw as number)
+      : null;
+  return { score, text, source, chunk_index };
+}
+
+/**
+ * Run an admin-only RAG question. The question text is hashed (SHA-256,
+ * first 12 hex chars) before it hits the audit log — the question text
+ * itself is NEVER persisted (privacy).
+ */
+export async function ask(
+  question: string,
+  options: RagCallOptions & { topK?: number } = {},
+): Promise<RagCallResult<RagAskResult>> {
+  const topK = options.topK ?? 3;
+  const args = ['ask', question, '--top-k', String(topK)];
+  const callOpts: RagCallOptions = {
+    timeoutMs: options.timeoutMs ?? 30_000,
+    args: options.args,
+  };
+  const result = await callRag<unknown>(args, callOpts);
+  if (!result.ok || result.data === null) {
+    return { ...result, data: null };
+  }
+  const raw = result.data as Record<string, unknown>;
+  const questionHash = createHash('sha256').update(question, 'utf8').digest('hex').slice(0, 12);
+
+  let hits: RagAskHit[] = [];
+  if (Array.isArray(raw['contexts'])) {
+    hits = (raw['contexts'] as unknown[])
+      .map(coerceHit)
+      .filter((h): h is RagAskHit => h !== null);
+    // Sort by descending score; cap at topK.
+    hits.sort((a, b) => b.score - a.score);
+    hits = hits.slice(0, topK);
+  }
+  const answer = typeof raw['answer'] === 'string' ? (raw['answer'] as string) : null;
+
+  return {
+    ok: true,
+    reason: 'ok',
+    raw: result.raw,
+    data: { questionHash, topK, answer, hits },
   };
 }

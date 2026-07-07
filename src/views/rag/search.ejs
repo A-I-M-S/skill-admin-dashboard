@@ -1,0 +1,109 @@
+<h1>RAG · Search</h1>
+<p class="muted">
+  Ask the RAG skill a question. Returns the model's answer plus the top-3 hits
+  (with scores). The question text itself is <strong>never</strong> persisted:
+  audit log entries store only a SHA-256 question_hash.
+</p>
+
+<% if (typeof flash !== 'undefined' && flash) { %><div class="flash"><%= flash %></div><% } %>
+
+<form method="post" action="/rag/search" class="form">
+  <%- include('../partials/csrf-input') %>
+  <label for="question">Question</label>
+  <input
+    type="text"
+    id="question"
+    name="question"
+    value="<%= view.question %>"
+    placeholder="What does the playbook say about chunking?"
+    required
+    maxlength="1024"
+    autofocus
+  />
+  <button type="submit">Ask</button>
+</form>
+
+<%
+  function stateBadge(state) {
+    if (state === 'ok') return '<span class="badge ok">ok</span>';
+    if (state === 'rag_unavailable') return '<span class="badge warn">RAG unavailable</span>';
+    if (state === 'unreachable') return '<span class="badge warn">unreachable</span>';
+    if (state === 'invalid_json') return '<span class="badge warn">invalid json</span>';
+    if (state === 'spawn_failed') return '<span class="badge warn">spawn failed</span>';
+    if (state === 'invalid_input') return '<span class="badge warn">invalid input</span>';
+    return '<span class="badge muted">' + state + '</span>';
+  }
+  function fmtScore(s) {
+    if (typeof s !== 'number' || !Number.isFinite(s)) return '\u2014';
+    return s.toFixed(4);
+  }
+%>
+
+<% if (view.state === 'rag_unavailable' || view.state === 'unreachable') { %>
+  <div class="flash">
+    <%- stateBadge(view.state) %>
+    The sibling <code>skill-rag-qdrant</code> project isn't installed at
+    <code>SKILL_RAG_QDRANT_DIR</code>. This is a soft-dependency (Risk #5).
+  </div>
+<% } else if (view.state === 'invalid_json' || view.state === 'spawn_failed') { %>
+  <div class="error">
+    <%- stateBadge(view.state) %>
+    <strong>Search failed.</strong>
+    <% if (view.error) { %> <span class="muted"><%= view.error %></span><% } %>
+  </div>
+<% } else if (view.state === 'invalid_input') { %>
+  <div class="error">
+    <%- stateBadge(view.state) %>
+    <strong>Invalid input.</strong>
+    <% if (view.error) { %> <span class="muted"><%= view.error %></span><% } %>
+  </div>
+<% } %>
+
+<% if (view.state === 'ok' && view.result) { %>
+  <% if (view.result.answer) { %>
+    <section>
+      <h2>Answer</h2>
+      <div class="answer"><%= view.result.answer %></div>
+    </section>
+  <% } %>
+  <section>
+    <h2>Top <%= view.result.topK %> hits</h2>
+    <% if (!view.result.hits || view.result.hits.length === 0) { %>
+      <div class="flash">No relevant information found.</div>
+    <% } else { %>
+      <table class="hits">
+        <thead>
+          <tr><th>#</th><th>score</th><th>source</th><th>chunk</th><th>text</th></tr>
+        </thead>
+        <tbody>
+          <% view.result.hits.forEach(function (hit, i) { %>
+            <tr>
+              <td><%= i + 1 %></td>
+              <td><code><%= fmtScore(hit.score) %></code></td>
+              <td><code><%= hit.source ?? '\u2014' %></code></td>
+              <td><code><%= hit.chunk_index ?? '\u2014' %></code></td>
+              <td class="text"><%= hit.text %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } %>
+  </section>
+<% } %>
+
+<style>
+  .form { display: flex; flex-direction: column; gap: 0.4rem; max-width: 720px; }
+  .form input[type=text] { padding: 0.4rem 0.5rem; }
+  .form button[type=submit] { width: max-content; padding: 0.5rem 0.9rem; }
+  table.hits { border-collapse: collapse; width: 100%; }
+  table.hits th, table.hits td { border-bottom: 1px solid #e1e6e9; padding: 0.4rem 0.6rem; vertical-align: top; }
+  table.hits th { background: #f4f7f9; font-size: 0.85rem; }
+  table.hits td.text { font-family: ui-monospace, monospace; font-size: 0.85rem; max-width: 480px; }
+  .answer { padding: 0.5rem 0.8rem; background: #f4f7f9; border-radius: 4px; }
+  .muted { color: #6a7d83; font-size: 0.85rem; margin: 0 0 0.6rem 0; }
+  .badge { display: inline-block; padding: 0 0.4rem; border-radius: 3px; font-size: 0.75rem; vertical-align: middle; }
+  .badge.ok { background: #d4edda; color: #155724; }
+  .badge.muted { background: #e9ecef; color: #495057; }
+  .badge.warn { background: #fff3cd; color: #856404; }
+  section { margin-top: 1.2rem; }
+</style>
